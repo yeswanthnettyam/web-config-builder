@@ -593,7 +593,7 @@ export default function NewScreenConfigPage() {
       // Get existing config to preserve validations
       const existingConfig = isEditMode && !isCloneMode ? getScreenConfigById(editId) : null;
       
-      const config: Partial<ScreenConfig> = {
+      const config: Partial<ScreenConfig> & { validations?: any } = {
         screenId: data.screenId,
         title: data.title,
         version: 1,

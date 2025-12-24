@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -97,7 +97,7 @@ export default function FieldMappingPage() {
   const selectedScreenId = watch('screenId');
 
   // Load mapping configs from cache
-  const loadMappingConfigs = () => {
+  const loadMappingConfigs = useCallback(() => {
     const configs = getAllMappingConfigs();
     let filtered = configs;
     
@@ -106,11 +106,11 @@ export default function FieldMappingPage() {
     }
     
     setMappingConfigs(filtered);
-  };
+  }, [filters]);
 
   useEffect(() => {
     loadMappingConfigs();
-  }, [filters]);
+  }, [loadMappingConfigs]);
 
   // Load fields when screen is selected
   useEffect(() => {
