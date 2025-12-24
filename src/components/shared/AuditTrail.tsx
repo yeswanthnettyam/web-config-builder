@@ -4,15 +4,10 @@ import {
   Card,
   CardContent,
   Typography,
-  Timeline,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineConnector,
-  TimelineContent,
-  TimelineDot,
-  TimelineOppositeContent,
   Chip,
   Paper,
+  Divider,
+  Avatar,
 } from '@mui/material';
 import {
   Add as CreateIcon,
@@ -82,25 +77,34 @@ export default function AuditTrail({ logs }: AuditTrailProps) {
           Audit Trail
         </Typography>
 
-        <Timeline position="right">
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {logs.map((log, index) => (
-            <TimelineItem key={log.auditId}>
-              <TimelineOppositeContent color="text.secondary" sx={{ flex: 0.3 }}>
-                <Typography variant="caption">
-                  {formatDateTime(log.timestamp)}
-                </Typography>
-              </TimelineOppositeContent>
-
-              <TimelineSeparator>
-                <TimelineDot color={getActionColor(log.action) as any}>
+            <Box key={log.auditId} sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 60 }}>
+                <Avatar
+                  sx={{
+                    bgcolor: `${getActionColor(log.action)}.main`,
+                    width: 40,
+                    height: 40,
+                  }}
+                >
                   {getActionIcon(log.action)}
-                </TimelineDot>
-                {index < logs.length - 1 && <TimelineConnector />}
-              </TimelineSeparator>
+                </Avatar>
+                {index < logs.length - 1 && (
+                  <Box
+                    sx={{
+                      width: 2,
+                      height: 40,
+                      bgcolor: 'divider',
+                      marginTop: 1,
+                    }}
+                  />
+                )}
+              </Box>
 
-              <TimelineContent>
+              <Box sx={{ flex: 1 }}>
                 <Paper elevation={0} sx={{ padding: 2, backgroundColor: 'background.default' }}>
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', marginBottom: 1 }}>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', marginBottom: 1, flexWrap: 'wrap' }}>
                     <Chip
                       label={log.action}
                       size="small"
@@ -111,6 +115,9 @@ export default function AuditTrail({ logs }: AuditTrailProps) {
                       size="small"
                       variant="outlined"
                     />
+                    <Typography variant="caption" color="text.secondary" sx={{ marginLeft: 'auto' }}>
+                      {formatDateTime(log.timestamp)}
+                    </Typography>
                   </Box>
 
                   <Typography variant="body2" gutterBottom>
@@ -123,10 +130,10 @@ export default function AuditTrail({ logs }: AuditTrailProps) {
                     </Typography>
                   )}
                 </Paper>
-              </TimelineContent>
-            </TimelineItem>
+              </Box>
+            </Box>
           ))}
-        </Timeline>
+        </Box>
       </CardContent>
     </Card>
   );

@@ -179,14 +179,6 @@ const themeOptions: ThemeOptions = {
         },
       },
     },
-    MuiFocusVisible: {
-      styleOverrides: {
-        root: {
-          outline: '2px solid #00B2FF',
-          outlineOffset: '2px',
-        },
-      },
-    },
   },
 };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import {
   Box,
   Card,
@@ -100,7 +100,7 @@ const screenConfigSchema = z.object({
 
 type ScreenConfigFormData = z.infer<typeof screenConfigSchema>;
 
-export default function NewScreenConfigPage() {
+function NewScreenConfigPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams?.get('id');
@@ -593,7 +593,7 @@ export default function NewScreenConfigPage() {
       // Get existing config to preserve validations
       const existingConfig = isEditMode && !isCloneMode ? getScreenConfigById(editId) : null;
       
-      const config: Partial<ScreenConfig> & { validations?: any } = {
+      const config: Partial<ScreenConfig> = {
         screenId: data.screenId,
         title: data.title,
         version: 1,
@@ -608,14 +608,18 @@ export default function NewScreenConfigPage() {
           sections: sections,
           actions: data.actions as any[],
         },
-        // Preserve existing validations if they exist
-        validations: existingConfig?.config?.validations || undefined,
         metadata: {
-          createdAt: existingConfig?.metadata?.createdAt || new Date().toISOString(),
+          createdAt: existingConfig?.config?.metadata?.createdAt || existingConfig?.createdAt || new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          createdBy: existingConfig?.metadata?.createdBy || 'current_user',
+          createdBy: existingConfig?.config?.metadata?.createdBy || 'current_user',
           updatedBy: 'current_user',
         },
+      };
+
+      // Preserve existing validations if they exist (add to config object for cache storage)
+      const configWithValidations = {
+        ...config,
+        ...(existingConfig?.config?.validations && { validations: existingConfig.config.validations }),
       };
 
       // Save to cache storage (temporary until backend is ready)
@@ -626,7 +630,7 @@ export default function NewScreenConfigPage() {
         screenName: data.screenName,
         version: existingConfig?.version || '1.0',
         status: 'DRAFT',
-        config: config,
+        config: configWithValidations,
       });
 
       console.log('💾 Saved to cache:', savedConfig);
@@ -1357,5 +1361,13 @@ export default function NewScreenConfigPage() {
         </form>
       </DashboardLayout>
     </ProtectedRoute>
+  );
+}
+
+export default function NewScreenConfigPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <NewScreenConfigPageContent />
+    </Suspense>
   );
 }

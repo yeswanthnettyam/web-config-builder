@@ -59,6 +59,13 @@ interface ValidationRule {
   pattern?: string;
   min?: number;
   max?: number;
+  value?: number;
+  minAge?: number;
+  maxAge?: number;
+  startDate?: string;
+  endDate?: string;
+  language?: string;
+  customCode?: string;
   executionTarget?: string;
 }
 

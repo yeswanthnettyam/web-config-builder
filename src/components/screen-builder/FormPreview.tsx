@@ -285,11 +285,6 @@ export default function FormPreview({ formData }: FormPreviewProps) {
   const renderSection = (section: any, index: number) => {
     if (!section) return null;
 
-    const SectionWrapper = section.collapsible ? Accordion : Box;
-    const wrapperProps = section.collapsible
-      ? { defaultExpanded: section.defaultExpanded !== false }
-      : {};
-
     const content = (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {section.subSections && section.subSections.length > 0 ? (
@@ -302,27 +297,27 @@ export default function FormPreview({ formData }: FormPreviewProps) {
       </Box>
     );
 
-    return (
-      <SectionWrapper key={section.id || index} {...wrapperProps}>
-        {section.collapsible ? (
-          <>
-            <AccordionSummary expandIcon={<ExpandMore />}>
-              <Typography variant="h6" fontSize="1rem">
-                {section.title}
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails>{content}</AccordionDetails>
-          </>
-        ) : (
-          <Box sx={{ marginBottom: 3 }}>
-            <Typography variant="h6" gutterBottom>
+    if (section.collapsible) {
+      return (
+        <Accordion key={section.id || index} defaultExpanded={section.defaultExpanded !== false}>
+          <AccordionSummary expandIcon={<ExpandMore />}>
+            <Typography variant="h6" fontSize="1rem">
               {section.title}
             </Typography>
-            <Divider sx={{ marginBottom: 2 }} />
-            {content}
-          </Box>
-        )}
-      </SectionWrapper>
+          </AccordionSummary>
+          <AccordionDetails>{content}</AccordionDetails>
+        </Accordion>
+      );
+    }
+
+    return (
+      <Box key={section.id || index} sx={{ marginBottom: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          {section.title}
+        </Typography>
+        <Divider sx={{ marginBottom: 2 }} />
+        {content}
+      </Box>
     );
   };
 

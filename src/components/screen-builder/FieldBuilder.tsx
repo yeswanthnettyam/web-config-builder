@@ -997,7 +997,7 @@ export default function FieldBuilder({
                             <MenuItem value="">
                               <em>None</em>
                             </MenuItem>
-                            {availableFields.map((f) => (
+                            {availableFields.map((f: { value: string; label: string }) => (
                               <MenuItem key={f.value} value={f.value}>
                                 {f.label}
                               </MenuItem>
