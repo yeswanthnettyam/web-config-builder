@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -98,7 +98,7 @@ export default function ValidationBuilderPage() {
   const selectedScreenId = watch('screenId');
 
   // Load screens with validation status
-  const loadValidationConfigs = () => {
+  const loadValidationConfigs = useCallback(() => {
     // Load all screen configs
     const allScreens = getAllScreenConfigs();
     
@@ -124,11 +124,11 @@ export default function ValidationBuilderPage() {
     }));
     
     setValidationConfigs(validationConfigs as any);
-  };
+  }, [filters]);
 
   useEffect(() => {
     loadValidationConfigs();
-  }, [filters]);
+  }, [loadValidationConfigs]);
 
   // Load fields when screen is selected
   useEffect(() => {
@@ -458,7 +458,7 @@ export default function ValidationBuilderPage() {
 
                     {fields.length === 0 ? (
                       <Alert severity="info">
-                        No validation rules defined. Click "Add Rule" to create one.
+                        No validation rules defined. Click &quot;Add Rule&quot; to create one.
                       </Alert>
                     ) : (
                       fields.map((field, index) => (

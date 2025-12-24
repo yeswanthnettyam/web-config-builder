@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -74,7 +74,7 @@ export default function ScreenBuilderPage() {
   const { data: screens } = useScreens();
 
   // Load configs from cache
-  const loadConfigs = () => {
+  const loadConfigs = useCallback(() => {
     setIsLoading(true);
     const cachedConfigs = getAllScreenConfigs();
     
@@ -95,11 +95,11 @@ export default function ScreenBuilderPage() {
     
     setConfigs(filtered);
     setIsLoading(false);
-  };
+  }, [filters]);
 
   useEffect(() => {
     loadConfigs();
-  }, [filters]);
+  }, [loadConfigs]);
 
   const handleFilterChange = (name: string, value: string) => {
     setFilters((prev) => ({ ...prev, [name]: value }));

@@ -424,7 +424,7 @@ export default function FieldMappingPage() {
 
                     {fields.length === 0 ? (
                       <Alert severity="info">
-                        No field mappings defined. Click "Add Mapping" to create one.
+                        No field mappings defined. Click &quot;Add Mapping&quot; to create one.
                       </Alert>
                     ) : (
                       <Box sx={{ marginTop: 2 }}>

@@ -805,8 +805,7 @@ export default function NewScreenConfigPage() {
                         required
                         error={!!errors.title}
                         helperText={errors.title?.message}
-                        inputProps={{ 'data-field-id': 'title' }}
-                        inputProps={{ 'aria-label': 'Configuration Title' }}
+                        inputProps={{ 'data-field-id': 'title', 'aria-label': 'Configuration Title' }}
                       />
                     )}
                   />
@@ -1129,7 +1128,7 @@ export default function NewScreenConfigPage() {
 
                             {(!watch(`sections.${sectionIndex}.subSections`) || watch(`sections.${sectionIndex}.subSections`)?.length === 0) && (
                               <Alert severity="info">
-                                No sub-sections defined. Click "Add Sub-Section" to create one.
+                                No sub-sections defined. Click &quot;Add Sub-Section&quot; to create one.
                               </Alert>
                             )}
                           </Box>

@@ -33,6 +33,85 @@ import {
   OPERATORS,
 } from '@/lib/constants';
 
+// Component for static data input with local state
+function StaticDataInput({ value, onChange }: { value: any[]; onChange: (value: any[]) => void }) {
+  const [textValue, setTextValue] = React.useState(() => {
+    if (Array.isArray(value) && value.length > 0) {
+      return value
+        .map((opt: any) => {
+          if (typeof opt === 'string') return opt;
+          return `${opt.value}:${opt.label}`;
+        })
+        .join(', ');
+    }
+    return '';
+  });
+
+  const parseOptions = (input: string) => {
+    if (!input.trim()) {
+      return [];
+    }
+
+    // Split by comma first
+    const items = input.split(',').map(item => item.trim()).filter(item => item);
+    
+    const options = items.map((item) => {
+      // Check if it has value:label format (key:value pairs)
+      const colonIndex = item.indexOf(':');
+      
+      if (colonIndex > 0) {
+        const value = item.substring(0, colonIndex).trim();
+        const label = item.substring(colonIndex + 1).trim();
+        
+        if (value && label) {
+          return { value, label };
+        }
+      }
+
+      // Simple format - use the whole item as label, create value from it
+      if (item) {
+        return {
+          value: item.toLowerCase().replace(/\s+/g, '_'),
+          label: item,
+        };
+      }
+      
+      return null;
+    }).filter((opt): opt is { value: string; label: string } => 
+      opt !== null && opt.value !== '' && opt.label !== ''
+    );
+
+    return options;
+  };
+
+  return (
+    <TextField
+      fullWidth
+      label="Dropdown Options (Key:Value Pairs)"
+      multiline
+      rows={4}
+      size="small"
+      placeholder="m:Married, s:Single, d:Divorced"
+      helperText="Enter comma-separated key:value pairs (e.g., 'm:Married, s:Single, d:Divorced')"
+      value={textValue}
+      onChange={(e) => {
+        const input = e.target.value;
+        setTextValue(input);
+        
+        // Parse and update the actual field value
+        const options = parseOptions(input);
+        onChange(options);
+      }}
+      sx={{
+        '& .MuiInputBase-input': {
+          fontFamily: 'monospace',
+          fontSize: '0.9rem',
+        },
+      }}
+    />
+  );
+}
+
 interface FieldBuilderProps {
   control: Control<any>;
   watch: UseFormWatch<any>;
@@ -105,7 +184,7 @@ export default function FieldBuilder({
       {fieldFields.length === 0 ? (
         <Card variant="outlined" sx={{ padding: 2, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
-            No fields added yet. Click "Add Field" to create one.
+            No fields added yet. Click &quot;Add Field&quot; to create one.
           </Typography>
         </Card>
       ) : (
@@ -411,84 +490,12 @@ export default function FieldBuilder({
                           <Controller
                             name={`${fieldArrayName}.${fieldIndex}.dataSource.staticData`}
                             control={control}
-                            render={({ field }) => {
-                              // State for text input
-                              const [textValue, setTextValue] = React.useState(() => {
-                                if (Array.isArray(field.value) && field.value.length > 0) {
-                                  return field.value
-                                    .map((opt: any) => {
-                                      if (typeof opt === 'string') return opt;
-                                      return `${opt.value}:${opt.label}`;
-                                    })
-                                    .join(', ');
-                                }
-                                return '';
-                              });
-
-                              const parseOptions = (input: string) => {
-                                if (!input.trim()) {
-                                  return [];
-                                }
-
-                                // Split by comma first
-                                const items = input.split(',').map(item => item.trim()).filter(item => item);
-                                
-                                const options = items.map((item) => {
-                                  // Check if it has value:label format (key:value pairs)
-                                  const colonIndex = item.indexOf(':');
-                                  
-                                  if (colonIndex > 0) {
-                                    const value = item.substring(0, colonIndex).trim();
-                                    const label = item.substring(colonIndex + 1).trim();
-                                    
-                                    if (value && label) {
-                                      return { value, label };
-                                    }
-                                  }
-
-                                  // Simple format - use the whole item as label, create value from it
-                                  if (item) {
-                                    return {
-                                      value: item.toLowerCase().replace(/\s+/g, '_'),
-                                      label: item,
-                                    };
-                                  }
-                                  
-                                  return null;
-                                }).filter((opt): opt is { value: string; label: string } => 
-                                  opt !== null && opt.value !== '' && opt.label !== ''
-                                );
-
-                                return options;
-                              };
-
-                              return (
-                                <TextField
-                                  fullWidth
-                                  label="Dropdown Options (Key:Value Pairs)"
-                                  multiline
-                                  rows={4}
-                                  size="small"
-                                  placeholder="m:Married, s:Single, d:Divorced"
-                                  helperText="Enter comma-separated key:value pairs (e.g., 'm:Married, s:Single, d:Divorced')"
-                                  value={textValue}
-                                  onChange={(e) => {
-                                    const input = e.target.value;
-                                    setTextValue(input);
-                                    
-                                    // Parse and update the actual field value
-                                    const options = parseOptions(input);
-                                    field.onChange(options);
-                                  }}
-                                  sx={{
-                                    '& .MuiInputBase-input': {
-                                      fontFamily: 'monospace',
-                                      fontSize: '0.9rem',
-                                    },
-                                  }}
-                                />
-                              );
-                            }}
+                            render={({ field }) => (
+                              <StaticDataInput
+                                value={field.value || []}
+                                onChange={field.onChange}
+                              />
+                            )}
                           />
                           
                           {/* Show parsed options preview */}
