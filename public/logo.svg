@@ -1,0 +1,15 @@
+<svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Kaleidofin Logo -->
+  <rect width="200" height="60" fill="transparent"/>
+  
+  <!-- Icon/Symbol -->
+  <circle cx="25" cy="30" r="18" fill="#00B2FF" opacity="0.2"/>
+  <circle cx="25" cy="30" r="12" fill="#0B2F70"/>
+  <path d="M25 20 L30 30 L25 40 L20 30 Z" fill="#00B2FF"/>
+  
+  <!-- Text: kaleidofin -->
+  <text x="50" y="38" font-family="Inter, sans-serif" font-size="24" font-weight="700" fill="#0B2F70">
+    kaleidofin
+  </text>
+</svg>
+

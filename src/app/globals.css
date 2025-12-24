@@ -1,0 +1,193 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: 'Inter', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus visible styles for accessibility */
+*:focus-visible {
+  outline: 2px solid #00B2FF;
+  outline-offset: 2px;
+}
+
+/* Skip to main content link for accessibility */
+.skip-to-main {
+  position: absolute;
+  left: -9999px;
+  z-index: 999;
+  padding: 1rem;
+  background-color: #0B2F70;
+  color: white;
+  text-decoration: none;
+}
+
+.skip-to-main:focus {
+  left: 0;
+  top: 0;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Error highlight animation - RED COLOR ONLY! */
+.error-highlight {
+  animation: errorPulse 0.8s ease-in-out 3 !important;
+  border: 3px solid #d32f2f !important;
+  border-radius: 8px !important;
+  background-color: rgba(211, 47, 47, 0.05) !important;
+  position: relative !important;
+  transition: all 0.3s ease !important;
+  outline: 2px solid #d32f2f !important;
+  outline-offset: 2px !important;
+}
+
+@keyframes errorPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7), 0 0 20px rgba(211, 47, 47, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(211, 47, 47, 0), 0 0 30px rgba(211, 47, 47, 0.6);
+    transform: scale(1.02);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(211, 47, 47, 0), 0 0 20px rgba(211, 47, 47, 0.4);
+    transform: scale(1);
+  }
+}
+
+/* Force RED on all child elements - override MUI primary color */
+.error-highlight *:focus,
+.error-highlight *:focus-visible {
+  outline-color: #d32f2f !important;
+  border-color: #d32f2f !important;
+}
+
+/* Error field indicator - Higher specificity */
+.error-highlight input,
+.error-highlight textarea,
+.error-highlight select,
+.error-highlight input:hover,
+.error-highlight textarea:hover,
+.error-highlight select:hover,
+.error-highlight input:focus,
+.error-highlight textarea:focus,
+.error-highlight select:focus {
+  border-color: #d32f2f !important;
+  background-color: rgba(211, 47, 47, 0.03) !important;
+}
+
+/* Override MUI Input styles with high specificity */
+.error-highlight .MuiOutlinedInput-root,
+.error-highlight .MuiOutlinedInput-root:hover,
+.error-highlight .MuiOutlinedInput-root.Mui-focused,
+.error-highlight .MuiOutlinedInput-root.Mui-focused:hover {
+  border-color: #d32f2f !important;
+}
+
+.error-highlight .MuiOutlinedInput-notchedOutline,
+.error-highlight .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline,
+.error-highlight .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #d32f2f !important;
+  border-width: 3px !important;
+}
+
+.error-highlight .MuiInputLabel-root,
+.error-highlight .MuiInputLabel-root.Mui-focused,
+.error-highlight .MuiInputLabel-root:hover {
+  color: #d32f2f !important;
+  font-weight: 600 !important;
+}
+
+/* Force red on Select components */
+.error-highlight .MuiSelect-select,
+.error-highlight .MuiSelect-select:focus,
+.error-highlight .MuiSelect-icon {
+  border-color: #d32f2f !important;
+  color: #d32f2f !important;
+}
+
+/* Make sure the animation works on MUI components */
+.error-highlight.MuiFormControl-root,
+.error-highlight.MuiAccordion-root,
+.error-highlight.MuiCard-root,
+.error-highlight.MuiPaper-root {
+  animation: errorPulse 0.8s ease-in-out 3 !important;
+  border: 3px solid #d32f2f !important;
+}
+
+/* Additional red glow effect */
+.error-highlight::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  bottom: -5px;
+  border: 2px solid rgba(211, 47, 47, 0.3);
+  border-radius: 10px;
+  pointer-events: none;
+  animation: errorGlow 0.8s ease-in-out infinite;
+}
+
+@keyframes errorGlow {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
