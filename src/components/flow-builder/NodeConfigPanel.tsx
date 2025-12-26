@@ -111,7 +111,8 @@ export default function NodeConfigPanel({
     } else {
       console.log('⏭️ Skipping update to preserve local conditions');
     }
-  }, [screen.screenId, screen.displayName, screen.defaultNext]); // Only depend on key fields, not conditions
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen.screenId, screen.displayName, screen.defaultNext]); // Only depend on key fields, not conditions to avoid overwriting local changes
 
   const handleFieldChange = (field: keyof FlowScreenConfig, value: any) => {
     setLocalScreen((prev) => ({ ...prev, [field]: value }));

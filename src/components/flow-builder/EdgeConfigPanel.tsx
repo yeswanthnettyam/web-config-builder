@@ -39,6 +39,10 @@ export default function EdgeConfigPanel({
 }: EdgeConfigPanelProps) {
   // Use local state to track changes
   const [formData, setFormData] = useState<NavigationCondition>(condition);
+  // Store raw metadata text to allow typing invalid JSON
+  const [metadataText, setMetadataText] = useState<string>(
+    condition.action.metadata ? JSON.stringify(condition.action.metadata, null, 2) : ''
+  );
 
   // Update local state when condition prop changes
   useEffect(() => {

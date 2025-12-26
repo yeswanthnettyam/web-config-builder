@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Box,
@@ -113,7 +113,7 @@ type PanelContent = {
   data: any;
 };
 
-export default function NewFlowPage() {
+function NewFlowPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit');
@@ -252,7 +252,8 @@ export default function NewFlowPage() {
         return newMap;
       });
     }
-  }, [configuredScreens, flowIdToLoad]); // Don't include screenConfigs in deps to avoid infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configuredScreens, flowIdToLoad]); // Don't include screenConfigs.size in deps to avoid infinite loop
 
   // Initialize nodes from configured screens - only show screens from screen config builder
   const initialNodes: Node[] = useMemo(() => {
@@ -1405,5 +1406,17 @@ export default function NewFlowPage() {
         </RightPanel>
       </DashboardLayout>
     </ProtectedRoute>
+  );
+}
+
+export default function NewFlowPage() {
+  return (
+    <Suspense fallback={
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <Typography>Loading...</Typography>
+      </Box>
+    }>
+      <NewFlowPageContent />
+    </Suspense>
   );
 }
