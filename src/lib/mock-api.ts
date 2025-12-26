@@ -235,7 +235,7 @@ export const mockFlowConfigs: FlowConfig[] = [
         conditions: [
           {
             if: {
-              source: 'FORM',
+              source: 'FORM_DATA',
               field: 'income_type',
               operator: 'EQUALS',
               value: 'salaried',

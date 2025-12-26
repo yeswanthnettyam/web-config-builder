@@ -142,9 +142,11 @@ export const CODE_LANGUAGES = [
 
 // Condition Sources
 export const CONDITION_SOURCES = [
-  { value: 'FORM', label: 'Form Data' },
-  { value: 'VALIDATION', label: 'Validation Result' },
+  { value: 'FORM_DATA', label: 'Form Data' },
+  { value: 'VALIDATION_RESULT', label: 'Validation Result' },
   { value: 'SERVICE_RESPONSE', label: 'Service Response' },
+  { value: 'APPLICATION_STATE', label: 'Application State' },
+  { value: 'USER_PROFILE', label: 'User Profile' },
   { value: 'CUSTOM_CODE', label: 'Custom Code' },
 ] as const;
 

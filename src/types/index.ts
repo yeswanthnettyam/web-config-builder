@@ -237,8 +237,106 @@ export interface MappingConfig {
 // FLOW CONFIG TYPES (MODULE 4)
 // ============================================
 
-export type ConditionSource = 'FORM' | 'VALIDATION' | 'SERVICE_RESPONSE' | 'CUSTOM_CODE';
-export type FlowOperator = 'EQUALS' | 'NOT_EQUALS' | 'LESS_THAN' | 'GREATER_THAN' | 'IN' | 'EXISTS' | 'NOT_EXISTS';
+export type ConditionSource = 
+  | 'FORM_DATA' 
+  | 'VALIDATION_RESULT' 
+  | 'SERVICE_RESPONSE' 
+  | 'APPLICATION_STATE' 
+  | 'USER_PROFILE' 
+  | 'CUSTOM_CODE';
+
+export type FlowOperator = 
+  | 'EQUALS' 
+  | 'NOT_EQUALS' 
+  | 'LESS_THAN' 
+  | 'GREATER_THAN' 
+  | 'GREATER_THAN_OR_EQUALS'
+  | 'LESS_THAN_OR_EQUALS'
+  | 'IN' 
+  | 'NOT_IN'
+  | 'EXISTS' 
+  | 'NOT_EXISTS'
+  | 'CONTAINS'
+  | 'STARTS_WITH'
+  | 'ENDS_WITH';
+
+export type ConditionOperator = FlowOperator;
+
+export type NavigationActionType = 
+  | 'NAVIGATE' 
+  | 'CALL_SERVICE' 
+  | 'SKIP' 
+  | 'END_FLOW' 
+  | 'LOOP_BACK';
+
+export interface ServiceCall {
+  serviceId: string;
+  serviceName: string;
+  endpoint: string;
+  method: 'GET' | 'POST' | 'PUT';
+  requestMapping?: Array<{ sourceField: string; targetField: string }>;
+  responseMapping?: Array<{ sourceField: string; targetField: string }>;
+  timeout?: number;
+  retryPolicy?: {
+    maxRetries: number;
+    retryDelayMs: number;
+  };
+  onError?: 'FAIL_FLOW' | 'CONTINUE' | 'ROUTE_TO_SCREEN';
+  errorScreen?: string;
+  cachePolicy?: {
+    enabled: boolean;
+    ttlSeconds: number;
+    cacheKey?: string;
+  };
+}
+
+export interface NavigationAction {
+  type: NavigationActionType;
+  targetScreen?: string;
+  service?: ServiceCall;
+  onSuccess?: NavigationAction;
+  onFailure?: NavigationAction;
+  metadata?: Record<string, any>;
+}
+
+export interface FlowConditionExpression {
+  id?: string;
+  logicOperator?: 'AND' | 'OR';
+  conditions?: FlowConditionExpression[]; // For nested conditions
+  source?: ConditionSource;
+  field?: string;
+  operator?: ConditionOperator;
+  value?: any;
+  customCode?: {
+    language: 'JAVASCRIPT';
+    code: string;
+    timeout?: number;
+  };
+}
+
+export interface NavigationCondition {
+  id: string;
+  priority: number;
+  enabled: boolean;
+  name: string;
+  condition: FlowConditionExpression;
+  action: NavigationAction;
+}
+
+export interface FlowScreenConfig {
+  screenId: string;
+  displayName: string;
+  defaultNext: string;
+  services?: {
+    preLoad?: ServiceCall[];
+    onSubmit?: ServiceCall[];
+    background?: ServiceCall[];
+  };
+  conditions: NavigationCondition[];
+  allowBack?: boolean;
+  allowSkip?: boolean;
+  maxRetries?: number;
+}
 
 export interface FlowCondition {
   if: {
@@ -264,8 +362,17 @@ export interface FlowCondition {
 
 export interface ScreenFlowNode {
   screenId: string;
+  displayName?: string;
   defaultNext: string;
   conditions?: FlowCondition[];
+  services?: {
+    preLoad?: ServiceCall[];
+    onSubmit?: ServiceCall[];
+    background?: ServiceCall[];
+  };
+  allowBack?: boolean;
+  allowSkip?: boolean;
+  maxRetries?: number;
 }
 
 export interface FlowConfig {
@@ -277,6 +384,18 @@ export interface FlowConfig {
   startScreen: string;
   screens: ScreenFlowNode[];
   metadata: ConfigMetadata;
+}
+
+export interface FlowValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  summary?: {
+    screens: number;
+    conditionalRoutes: number;
+    services: number;
+    warnings: number;
+  };
 }
 
 // ============================================

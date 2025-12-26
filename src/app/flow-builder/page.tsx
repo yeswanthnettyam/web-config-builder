@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -41,9 +41,9 @@ import StatusChip from '@/components/shared/StatusChip';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import JsonViewer from '@/components/shared/JsonViewer';
 import { usePartners, useProducts } from '@/hooks/use-master-data';
-import { FlowConfig } from '@/types';
 import { formatDateTime } from '@/lib/utils';
-import { mockFlowConfigs } from '@/lib/mock-api';
+import { getAllFlowConfigs, deleteFlowConfig, type CachedFlowConfig } from '@/lib/cache-storage';
+import toast from 'react-hot-toast';
 
 export default function FlowBuilderPage() {
   const router = useRouter();
@@ -53,16 +53,42 @@ export default function FlowBuilderPage() {
     status: '',
   });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedFlow, setSelectedFlow] = useState<FlowConfig | null>(null);
+  const [selectedFlow, setSelectedFlow] = useState<CachedFlowConfig | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [flows, setFlows] = useState<CachedFlowConfig[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const { data: partners } = usePartners();
   const { data: products } = useProducts();
 
-  // Mock data - replace with actual API call
-  const flows = mockFlowConfigs;
-  const isLoading = false;
+  // Load flows from cache
+  const loadFlows = useCallback(() => {
+    setIsLoading(true);
+    const cachedFlows = getAllFlowConfigs();
+    
+    // Apply filters
+    let filtered = cachedFlows;
+    
+    if (filters.partnerCode) {
+      filtered = filtered.filter(f => f.config.partnerCode === filters.partnerCode);
+    }
+    
+    if (filters.productCode) {
+      filtered = filtered.filter(f => f.config.productCode === filters.productCode);
+    }
+    
+    if (filters.status) {
+      filtered = filtered.filter(f => f.status === filters.status);
+    }
+    
+    setFlows(filtered);
+    setIsLoading(false);
+  }, [filters]);
+
+  useEffect(() => {
+    loadFlows();
+  }, [loadFlows]);
 
   const handleFilterChange = (name: string, value: string) => {
     setFilters((prev) => ({ ...prev, [name]: value }));
@@ -78,7 +104,7 @@ export default function FlowBuilderPage() {
 
   const handleMenuOpen = (
     event: React.MouseEvent<HTMLElement>,
-    flow: FlowConfig
+    flow: CachedFlowConfig
   ) => {
     setAnchorEl(event.currentTarget);
     setSelectedFlow(flow);
@@ -95,14 +121,14 @@ export default function FlowBuilderPage() {
 
   const handleEdit = () => {
     if (selectedFlow) {
-      router.push(`/flow-builder/${selectedFlow.flowId}/edit`);
+      router.push(`/flow-builder/new?edit=${selectedFlow.id}`);
     }
     handleMenuClose();
   };
 
   const handleClone = () => {
     if (selectedFlow) {
-      router.push(`/flow-builder/new?clone=${selectedFlow.flowId}`);
+      router.push(`/flow-builder/new?clone=${selectedFlow.id}`);
     }
     handleMenuClose();
   };
@@ -113,10 +139,13 @@ export default function FlowBuilderPage() {
   };
 
   const handleConfirmDelete = () => {
-    console.log('Deleting flow:', selectedFlow?.flowId);
-    setDeleteDialogOpen(false);
-    setSelectedFlow(null);
-    // TODO: Delete via API
+    if (selectedFlow) {
+      deleteFlowConfig(selectedFlow.id);
+      toast.success('Flow deleted successfully');
+      setDeleteDialogOpen(false);
+      setSelectedFlow(null);
+      loadFlows(); // Reload the list
+    }
   };
 
   const filterConfig: Filter[] = [
@@ -219,16 +248,16 @@ export default function FlowBuilderPage() {
                       sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                     >
                       <TableCell>{flow.flowId}</TableCell>
-                      <TableCell>{flow.partnerCode}</TableCell>
-                      <TableCell>{flow.productCode}</TableCell>
-                      <TableCell>{flow.startScreen}</TableCell>
-                      <TableCell>{flow.screens.length}</TableCell>
+                      <TableCell>{flow.config.partnerCode}</TableCell>
+                      <TableCell>{flow.config.productCode}</TableCell>
+                      <TableCell>{flow.config.startScreen}</TableCell>
+                      <TableCell>{flow.config.screens.length}</TableCell>
                       <TableCell>v{flow.version}</TableCell>
                       <TableCell>
                         <StatusChip status={flow.status} />
                       </TableCell>
                       <TableCell>
-                        {formatDateTime(flow.metadata.updatedAt)}
+                        {formatDateTime(flow.updatedAt)}
                       </TableCell>
                       <TableCell align="right">
                         <Tooltip title="More actions">
@@ -272,14 +301,12 @@ export default function FlowBuilderPage() {
             </ListItemIcon>
             <ListItemText>Clone</ListItemText>
           </MenuItem>
-          {selectedFlow?.status === 'DRAFT' && (
-            <MenuItem onClick={handleDelete}>
-              <ListItemIcon>
-                <Delete fontSize="small" color="error" />
-              </ListItemIcon>
-              <ListItemText>Delete</ListItemText>
-            </MenuItem>
-          )}
+          <MenuItem onClick={handleDelete}>
+            <ListItemIcon>
+              <Delete fontSize="small" color="error" />
+            </ListItemIcon>
+            <ListItemText>Delete</ListItemText>
+          </MenuItem>
         </Menu>
 
         {/* Delete Confirmation Dialog */}
@@ -307,7 +334,7 @@ export default function FlowBuilderPage() {
             {selectedFlow && (
               <Box sx={{ paddingTop: 2 }}>
                 <JsonViewer
-                  data={selectedFlow}
+                  data={selectedFlow.config}
                   title="Flow Configuration"
                   filename={`${selectedFlow.flowId}_flow_config.json`}
                 />

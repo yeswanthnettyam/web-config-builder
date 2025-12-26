@@ -7,16 +7,18 @@ interface Breadcrumb {
   href?: string;
 }
 
+interface PageHeaderAction {
+  label: string;
+  onClick: () => void;
+  icon?: React.ReactNode;
+  disabled?: boolean;
+}
+
 interface PageHeaderProps {
   title: string;
   description?: string;
   breadcrumbs?: Breadcrumb[];
-  action?: {
-    label: string;
-    onClick: () => void;
-    icon?: React.ReactNode;
-    disabled?: boolean;
-  };
+  action?: React.ReactNode | PageHeaderAction;
 }
 
 export default function PageHeader({
@@ -73,15 +75,19 @@ export default function PageHeader({
         </Box>
 
         {action && (
-          <Button
-            variant="contained"
-            onClick={action.onClick}
-            startIcon={action.icon}
-            disabled={action.disabled}
-            sx={{ minWidth: 140 }}
-          >
-            {action.label}
-          </Button>
+          typeof action === 'object' && 'label' in action ? (
+            <Button
+              variant="contained"
+              onClick={action.onClick}
+              startIcon={action.icon}
+              disabled={action.disabled}
+              sx={{ minWidth: 140 }}
+            >
+              {action.label}
+            </Button>
+          ) : (
+            action
+          )
         )}
       </Box>
     </Box>
