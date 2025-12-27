@@ -117,6 +117,9 @@ export interface Field {
   visibleWhen?: Condition;
   enabledWhen?: Condition;
   requiredWhen?: Condition;
+  order?: number;
+  parentId?: string;
+  parentType?: 'SECTION' | 'SUBSECTION';
 }
 
 export interface SubSection {
@@ -127,6 +130,8 @@ export interface SubSection {
   maxInstances?: number;
   instanceLabel?: string;
   fields: Field[];
+  order?: number;
+  parentSectionId?: string;
 }
 
 export interface Section {
@@ -136,6 +141,8 @@ export interface Section {
   defaultExpanded?: boolean;
   fields?: Field[];
   subSections?: SubSection[];
+  order?: number;
+  contentType?: 'FIELDS' | 'SUBSECTIONS';
 }
 
 export interface Action {

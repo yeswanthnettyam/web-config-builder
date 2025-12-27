@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -24,7 +24,24 @@ import {
   ExpandMore,
   DragIndicator,
 } from '@mui/icons-material';
-import { Control, Controller, useFieldArray, UseFormWatch } from 'react-hook-form';
+import { Control, Controller, useFieldArray, UseFormWatch, UseFormTrigger } from 'react-hook-form';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import SortableField from './SortableField';
 import {
   FIELD_TYPES,
   DATA_SOURCE_TYPES,
@@ -115,35 +132,103 @@ function StaticDataInput({ value, onChange }: { value: any[]; onChange: (value: 
 interface FieldBuilderProps {
   control: Control<any>;
   watch: UseFormWatch<any>;
+  trigger: UseFormTrigger<any>;
   sectionIndex: number;
   subSectionIndex?: number;
   fieldArrayName: string;
+  onFieldDragEnd?: (event: DragEndEvent) => void;
 }
 
 export default function FieldBuilder({
   control,
   watch,
+  trigger,
   sectionIndex,
   subSectionIndex,
   fieldArrayName,
+  onFieldDragEnd,
 }: FieldBuilderProps) {
   const {
     fields: fieldFields,
     append: appendField,
     remove: removeField,
+    move: moveField,
   } = useFieldArray({
     control,
     name: fieldArrayName,
   });
 
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  
+  // Track _keys for fields that don't have them yet (for existing fields)
+  const fieldKeysRef = useRef<Map<number, string>>(new Map());
+
+  // Setup sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle field drag end
+  const handleFieldDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragId(null);
+
+    if (!over || active.id === over.id) return;
+
+    const fields = watch(fieldArrayName) || [];
+    // Use _key instead of id for finding fields (id is user-editable)
+    const oldIndex = fields.findIndex((f: any) => (f._key || f.id) === active.id);
+    const newIndex = fields.findIndex((f: any) => (f._key || f.id) === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Use moveField from useFieldArray to update the form state
+    moveField(oldIndex, newIndex);
+
+    // Update order properties after reordering
+    setTimeout(() => {
+      const updatedFields = watch(fieldArrayName) || [];
+      updatedFields.forEach((field: any, index: number) => {
+        const fieldPath = `${fieldArrayName}.${index}.order`;
+        const currentOrder = watch(fieldPath);
+        if (currentOrder !== index) {
+          // This will be handled by the parent component's onFieldDragEnd
+        }
+      });
+    }, 0);
+
+    // Call parent handler if provided (for updating order)
+    if (onFieldDragEnd) {
+      onFieldDragEnd(event);
+    }
+  };
+
+  // Handle drag start
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string);
+  };
+
   const handleAddField = () => {
+    const currentFields = watch(fieldArrayName) || [];
+    const sectionId = watch(`sections.${sectionIndex}.id`);
+    const subsectionId = subSectionIndex !== undefined 
+      ? watch(`sections.${sectionIndex}.subSections.${subSectionIndex}.id`)
+      : undefined;
+    
     appendField({
+      _key: crypto.randomUUID(), // Immutable internal key for React keys and dnd-kit
       id: `field_${Date.now()}`,
       type: 'TEXT',
       label: '',
       required: false,
       readOnly: false,
       placeholder: '',
+      order: currentFields.length,
+      parentId: subsectionId || sectionId,
+      parentType: subsectionId ? 'SUBSECTION' : 'SECTION',
     });
   };
 
@@ -188,77 +273,129 @@ export default function FieldBuilder({
           </Typography>
         </Card>
       ) : (
-        fieldFields.map((field, fieldIndex) => {
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleFieldDragEnd}
+        >
+          <SortableContext
+            items={(() => {
+              return fieldFields.map((f, idx) => {
+                const fieldData = watch(`${fieldArrayName}.${idx}`);
+                // Use immutable _key for sortable items (never use field.id)
+                if (!fieldData) return null;
+                // Use existing _key or get/generate from ref (stable across renders)
+                if (fieldData._key) return fieldData._key;
+                if (!fieldKeysRef.current.has(idx)) {
+                  fieldKeysRef.current.set(idx, crypto.randomUUID());
+                }
+                return fieldKeysRef.current.get(idx)!;
+              }).filter(Boolean) as string[];
+            })()}
+            strategy={verticalListSortingStrategy}
+          >
+            {fieldFields.map((field, fieldIndex) => {
           const currentFieldType = watch(`${fieldArrayName}.${fieldIndex}.type`);
           const hasDataSource = ['DROPDOWN', 'RADIO'].includes(currentFieldType);
           const hasOtpConfig = currentFieldType === 'OTP_VERIFICATION';
           const hasFileConfig = currentFieldType === 'FILE_UPLOAD';
           const hasDateConfig = currentFieldType === 'DATE';
           const hasTextInput = ['TEXT', 'NUMBER', 'TEXTAREA'].includes(currentFieldType);
+              const currentField = watch(`${fieldArrayName}.${fieldIndex}`);
 
-          return (
-            <Accordion key={field.id} sx={{ marginBottom: 1 }}>
-              <AccordionSummary expandIcon={<ExpandMore />}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    width: '100%',
-                    gap: 1,
-                  }}
+              // Guard against missing field
+              if (!currentField) {
+                return null;
+              }
+
+              // Use immutable _key for React key (never use field.id which is user-editable)
+              // Use existing _key or get from ref (stable across renders)
+              let fieldKey = currentField._key;
+              if (!fieldKey) {
+                if (!fieldKeysRef.current.has(fieldIndex)) {
+                  fieldKeysRef.current.set(fieldIndex, crypto.randomUUID());
+                }
+                fieldKey = fieldKeysRef.current.get(fieldIndex)!;
+              }
+              const hasId = !!currentField.id;
+              
+              return (
+                <SortableField
+                  key={fieldKey}
+                  fieldKey={fieldKey}
+                  field={currentField}
+                  fieldIndex={fieldIndex}
+                  disabled={!hasId}
                 >
-                  <DragIndicator color="action" fontSize="small" />
-                  <Typography sx={{ flexGrow: 1 }}>
-                    {watch(`${fieldArrayName}.${fieldIndex}.label`) ||
-                      watch(`${fieldArrayName}.${fieldIndex}.id`) ||
-                      `Field ${fieldIndex + 1}`}
-                  </Typography>
-                  <Chip
-                    label={watch(`${fieldArrayName}.${fieldIndex}.type`) || 'TEXT'}
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                  />
-                </Box>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={2}>
-                  {/* Basic Field Properties */}
-                  <Grid item xs={12}>
-                    <Typography variant="caption" fontWeight={600} color="primary">
-                      Basic Properties
-                    </Typography>
-                    <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <Controller
-                      name={`${fieldArrayName}.${fieldIndex}.id`}
-                      control={control}
-                      rules={{
-                        required: 'Field ID is required',
-                        pattern: {
-                          value: /^[a-z][a-z0-9_]*$/,
-                          message: 'Use snake_case (lowercase with underscores)',
-                        },
-                      }}
-                      render={({ field, fieldState }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Field ID"
-                          required
+                  <Accordion sx={{ marginBottom: 1, marginLeft: hasId ? 4 : 0 }} defaultExpanded>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          width: '100%',
+                          gap: 1,
+                        }}
+                      >
+                        <Typography sx={{ flexGrow: 1, color: hasId ? 'text.primary' : 'text.secondary', fontStyle: hasId ? 'normal' : 'italic' }}>
+                          {watch(`${fieldArrayName}.${fieldIndex}.label`) ||
+                            watch(`${fieldArrayName}.${fieldIndex}.id`) ||
+                            `Field ${fieldIndex + 1}${hasId ? '' : ' (ID required)'}`}
+                        </Typography>
+                        <Chip
+                          label={watch(`${fieldArrayName}.${fieldIndex}.type`) || 'TEXT'}
                           size="small"
-                          error={!!fieldState.error}
-                          helperText={
-                            fieldState.error?.message ||
-                            'Use snake_case (e.g., full_name)'
-                          }
-                          placeholder="e.g., email_address"
+                          color={hasId ? 'primary' : 'warning'}
+                          variant="outlined"
                         />
-                      )}
-                    />
-                  </Grid>
+                      </Box>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Grid container spacing={2}>
+                        {/* Basic Field Properties */}
+                        <Grid item xs={12}>
+                          <Typography variant="caption" fontWeight={600} color="primary">
+                            Basic Properties
+                          </Typography>
+                          <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                        </Grid>
+
+                        <Grid item xs={12} md={6}>
+                          <Controller
+                            name={`${fieldArrayName}.${fieldIndex}.id`}
+                            control={control}
+                            shouldUnregister={false}
+                            rules={{
+                              required: 'Field ID is required',
+                              pattern: {
+                                value: /^[a-z][a-z0-9_]*$/,
+                                message: 'Use snake_case (lowercase with underscores)',
+                              },
+                            }}
+                            render={({ field, fieldState }) => (
+                              <TextField
+                                {...field}
+                                fullWidth
+                                label="Field ID"
+                                required
+                                size="small"
+                                error={!!fieldState.error}
+                                helperText={
+                                  fieldState.error?.message ||
+                                  'Use snake_case (e.g., full_name)'
+                                }
+                                placeholder="e.g., email_address"
+                                onBlur={field.onBlur}
+                                autoComplete="off"
+                                inputProps={{
+                                  autoComplete: 'off',
+                                  'data-field-index': fieldIndex,
+                                }}
+                              />
+                            )}
+                          />
+                        </Grid>
 
                   <Grid item xs={12} md={6}>
                     <Controller
@@ -497,46 +634,6 @@ export default function FieldBuilder({
                               />
                             )}
                           />
-                          
-                          {/* Show parsed options preview */}
-                          {Array.isArray(
-                            watch(`${fieldArrayName}.${fieldIndex}.dataSource.staticData`)
-                          ) &&
-                            watch(`${fieldArrayName}.${fieldIndex}.dataSource.staticData`)
-                              .length > 0 && (
-                              <Grid item xs={12}>
-                                <Box
-                                  sx={{
-                                    padding: 1.5,
-                                    backgroundColor: 'grey.100',
-                                    borderRadius: 1,
-                                    marginTop: 1,
-                                  }}
-                                >
-                                  <Typography
-                                    variant="caption"
-                                    fontWeight={600}
-                                    display="block"
-                                    gutterBottom
-                                  >
-                                    Parsed Options ({watch(`${fieldArrayName}.${fieldIndex}.dataSource.staticData`).length}):
-                                  </Typography>
-                                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                    {watch(
-                                      `${fieldArrayName}.${fieldIndex}.dataSource.staticData`
-                                    ).map((opt: any, idx: number) => (
-                                      <Chip
-                                        key={idx}
-                                        label={`${opt.value} → ${opt.label}`}
-                                        size="small"
-                                        variant="outlined"
-                                        color="primary"
-                                      />
-                                    ))}
-                                  </Box>
-                                </Box>
-                              </Grid>
-                            )}
                         </Grid>
                       )}
 
@@ -714,387 +811,215 @@ export default function FieldBuilder({
                           )}
                         />
                       </Grid>
-
-                      {/* Min Date */}
-                      <Grid item xs={12} md={6}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.dateConfig.minDate`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Minimum Date (Optional)"
-                              type="date"
-                              size="small"
-                              InputLabelProps={{ shrink: true }}
-                              helperText="Earliest selectable date"
-                            />
+                            </>
                           )}
-                        />
-                      </Grid>
 
-                      {/* Max Date */}
-                      <Grid item xs={12} md={6}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.dateConfig.maxDate`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Maximum Date (Optional)"
-                              type="date"
-                              size="small"
-                              InputLabelProps={{ shrink: true }}
-                              helperText="Latest selectable date"
-                            />
-                          )}
-                        />
-                      </Grid>
-
-                      {/* Age Range - Show only if validationType is AGE_RANGE */}
-                      {watch(`${fieldArrayName}.${fieldIndex}.dateConfig.validationType`) === 'AGE_RANGE' && (
-                        <>
-                          <Grid item xs={12} md={6}>
-                            <Controller
-                              name={`${fieldArrayName}.${fieldIndex}.dateConfig.minAge`}
-                              control={control}
-                              render={({ field }) => (
-                                <TextField
-                                  {...field}
-                                  fullWidth
-                                  label="Minimum Age"
-                                  type="number"
-                                  size="small"
-                                  placeholder="e.g., 18"
-                                  helperText="Minimum age in years"
-                                />
-                              )}
-                            />
-                          </Grid>
-
-                          <Grid item xs={12} md={6}>
-                            <Controller
-                              name={`${fieldArrayName}.${fieldIndex}.dateConfig.maxAge`}
-                              control={control}
-                              render={({ field }) => (
-                                <TextField
-                                  {...field}
-                                  fullWidth
-                                  label="Maximum Age"
-                                  type="number"
-                                  size="small"
-                                  placeholder="e.g., 65"
-                                  helperText="Maximum age in years"
-                                />
-                              )}
-                            />
-                          </Grid>
-                        </>
-                      )}
-
-                      {/* Default Date */}
-                      <Grid item xs={12} md={6}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.dateConfig.defaultDate`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Default Date (Optional)"
-                              type="date"
-                              size="small"
-                              InputLabelProps={{ shrink: true }}
-                              helperText="Pre-filled date value"
-                            />
-                          )}
-                        />
-                      </Grid>
-
-                      {/* Calendar Start Offset */}
-                      <Grid item xs={12} md={6}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.dateConfig.calendarStartOffset`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Calendar Start Offset (Months)"
-                              type="number"
-                              size="small"
-                              placeholder="e.g., -1 for last month"
-                              helperText="Months from today (negative = past)"
-                            />
-                          )}
-                        />
-                      </Grid>
-
-                      {/* Show Week Numbers */}
-                      <Grid item xs={12} md={4}>
-                        <FormControlLabel
-                          control={
-                            <Controller
-                              name={`${fieldArrayName}.${fieldIndex}.dateConfig.showWeekNumbers`}
-                              control={control}
-                              render={({ field }) => (
-                                <Checkbox
-                                  {...field}
-                                  checked={field.value || false}
-                                />
-                              )}
-                            />
-                          }
-                          label="Show Week Numbers"
-                        />
-                      </Grid>
-
-                      {/* Disable Weekends */}
-                      <Grid item xs={12} md={4}>
-                        <FormControlLabel
-                          control={
-                            <Controller
-                              name={`${fieldArrayName}.${fieldIndex}.dateConfig.disableWeekends`}
-                              control={control}
-                              render={({ field }) => (
-                                <Checkbox
-                                  {...field}
-                                  checked={field.value || false}
-                                />
-                              )}
-                            />
-                          }
-                          label="Disable Weekends"
-                        />
-                      </Grid>
-
-                      {/* Highlight Today */}
-                      <Grid item xs={12} md={4}>
-                        <FormControlLabel
-                          control={
-                            <Controller
-                              name={`${fieldArrayName}.${fieldIndex}.dateConfig.highlightToday`}
-                              control={control}
-                              render={({ field }) => (
-                                <Checkbox
-                                  {...field}
-                                  checked={field.value || false}
-                                />
-                              )}
-                            />
-                          }
-                          label="Highlight Today"
-                        />
-                      </Grid>
-                    </>
-                  )}
-
-                  {/* OTP Verification */}
-                  {hasOtpConfig && (
-                    <>
-                      <Grid item xs={12}>
-                        <Typography
-                          variant="caption"
-                          fontWeight={600}
-                          color="primary"
-                        >
-                          OTP Configuration
-                        </Typography>
-                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                      </Grid>
-
-                      <Grid item xs={12} md={4}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.channel`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="OTP Channel"
-                              select
-                              required
-                              size="small"
-                            >
-                              {OTP_CHANNELS.map((channel) => (
-                                <MenuItem
-                                  key={channel.value}
-                                  value={channel.value}
+                          {/* OTP Verification */}
+                          {hasOtpConfig && (
+                            <>
+                              <Grid item xs={12}>
+                                <Typography
+                                  variant="caption"
+                                  fontWeight={600}
+                                  color="primary"
                                 >
-                                  {channel.label}
-                                </MenuItem>
-                              ))}
-                            </TextField>
+                                  OTP Configuration
+                                </Typography>
+                                <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                              </Grid>
+
+                              <Grid item xs={12} md={4}>
+                                <Controller
+                                  name={`${fieldArrayName}.${fieldIndex}.otpConfig.channel`}
+                                  control={control}
+                                  render={({ field }) => (
+                                    <TextField
+                                      {...field}
+                                      fullWidth
+                                      label="OTP Channel"
+                                      select
+                                      required
+                                      size="small"
+                                    >
+                                      {OTP_CHANNELS.map((channel) => (
+                                        <MenuItem
+                                          key={channel.value}
+                                          value={channel.value}
+                                        >
+                                          {channel.label}
+                                        </MenuItem>
+                                      ))}
+                                    </TextField>
+                                  )}
+                                />
+                              </Grid>
+
+                              <Grid item xs={12} md={4}>
+                                <Controller
+                                  name={`${fieldArrayName}.${fieldIndex}.otpConfig.linkedField`}
+                                  control={control}
+                                  render={({ field }) => (
+                                    <TextField
+                                      {...field}
+                                      fullWidth
+                                      label="Linked Field ID"
+                                      size="small"
+                                      placeholder="e.g., mobile"
+                                      helperText="Field to send OTP to"
+                                    />
+                                  )}
+                                />
+                              </Grid>
+
+                              <Grid item xs={12} md={4}>
+                                <Controller
+                                  name={`${fieldArrayName}.${fieldIndex}.otpConfig.otpLength`}
+                                  control={control}
+                                  render={({ field }) => (
+                                    <TextField
+                                      {...field}
+                                      fullWidth
+                                      label="OTP Length"
+                                      type="number"
+                                      size="small"
+                                      inputProps={{ min: 4, max: 8 }}
+                                    />
+                                  )}
+                                />
+                              </Grid>
+                            </>
                           )}
-                        />
-                      </Grid>
 
-                      <Grid item xs={12} md={4}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.linkedField`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Linked Field ID"
-                              size="small"
-                              placeholder="e.g., mobile"
-                              helperText="Field to send OTP to"
-                            />
-                          )}
-                        />
-                      </Grid>
-
-                      <Grid item xs={12} md={4}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.otpLength`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="OTP Length"
-                              type="number"
-                              size="small"
-                              inputProps={{ min: 4, max: 8 }}
-                            />
-                          )}
-                        />
-                      </Grid>
-                    </>
-                  )}
-
-                  {/* Conditional Logic */}
-                  <Grid item xs={12}>
-                    <Typography
-                      variant="caption"
-                      fontWeight={600}
-                      color="secondary"
-                    >
-                      Conditional Logic (Optional)
-                    </Typography>
-                    <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                  </Grid>
-
-                  <Grid item xs={12} md={4}>
-                    <Controller
-                      name={`${fieldArrayName}.${fieldIndex}.visibleWhen.field`}
-                      control={control}
-                      render={({ field }) => {
-                        const availableFields = getAllFieldIds();
-                        return (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="Visible When Field"
-                            select
-                            size="small"
-                            helperText="Select a field from this section"
-                          >
-                            <MenuItem value="">
-                              <em>None</em>
-                            </MenuItem>
-                            {availableFields.map((f: { value: string; label: string }) => (
-                              <MenuItem key={f.value} value={f.value}>
-                                {f.label}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        );
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={4}>
-                    <Controller
-                      name={`${fieldArrayName}.${fieldIndex}.visibleWhen.operator`}
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Operator"
-                          select
-                          size="small"
-                        >
-                          {OPERATORS.map((op) => (
-                            <MenuItem key={op.value} value={op.value}>
-                              {op.label}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      )}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={4}>
-                    <Controller
-                      name={`${fieldArrayName}.${fieldIndex}.visibleWhen.value`}
-                      control={control}
-                      render={({ field }) => {
-                        const selectedField = watch(
-                          `${fieldArrayName}.${fieldIndex}.visibleWhen.field`
-                        );
-                        const allFields = watch(fieldArrayName) || [];
-                        const parentField = allFields.find((f: any) => f.id === selectedField);
-                        const isDropdown = parentField?.type === 'DROPDOWN' || parentField?.type === 'RADIO';
-                        const hasStaticData = parentField?.dataSource?.type === 'STATIC_JSON';
-                        const staticOptions = parentField?.dataSource?.staticData || [];
-
-                        if (isDropdown && hasStaticData && staticOptions.length > 0) {
-                          return (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Value"
-                              select
-                              size="small"
-                              helperText="Select from parent field options"
+                          {/* Conditional Logic */}
+                          <Grid item xs={12}>
+                            <Typography
+                              variant="caption"
+                              fontWeight={600}
+                              color="secondary"
                             >
-                              {staticOptions.map((opt: any) => (
-                                <MenuItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                          );
-                        }
+                              Conditional Logic (Optional)
+                            </Typography>
+                            <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                          </Grid>
 
-                        return (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="Value"
-                            size="small"
-                            placeholder="expected_value"
-                          />
-                        );
-                      }}
-                    />
-                  </Grid>
+                          <Grid item xs={12} md={4}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.visibleWhen.field`}
+                              control={control}
+                              render={({ field }) => {
+                                const availableFields = getAllFieldIds();
+                                return (
+                                  <TextField
+                                    {...field}
+                                    fullWidth
+                                    label="Visible When Field"
+                                    select
+                                    size="small"
+                                    helperText="Select a field from this section"
+                                  >
+                                    <MenuItem value="">
+                                      <em>None</em>
+                                    </MenuItem>
+                                    {availableFields.map((f: { value: string; label: string }) => (
+                                      <MenuItem key={f.value} value={f.value}>
+                                        {f.label}
+                                      </MenuItem>
+                                    ))}
+                                  </TextField>
+                                );
+                              }}
+                            />
+                          </Grid>
 
-                  {/* Actions */}
-                  <Grid item xs={12}>
-                    <Divider sx={{ marginY: 1 }} />
-                    <Button
-                      color="error"
-                      startIcon={<Delete />}
-                      onClick={() => removeField(fieldIndex)}
-                      size="small"
-                    >
-                      Remove Field
-                    </Button>
-                  </Grid>
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
-          );
-        })
+                          <Grid item xs={12} md={4}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.visibleWhen.operator`}
+                              control={control}
+                              render={({ field }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Operator"
+                                  select
+                                  size="small"
+                                >
+                                  {OPERATORS.map((op) => (
+                                    <MenuItem key={op.value} value={op.value}>
+                                      {op.label}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12} md={4}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.visibleWhen.value`}
+                              control={control}
+                              render={({ field }) => {
+                                const selectedField = watch(
+                                  `${fieldArrayName}.${fieldIndex}.visibleWhen.field`
+                                );
+                                const allFields = watch(fieldArrayName) || [];
+                                const parentField = allFields.find((f: any) => f.id === selectedField);
+                                const isDropdown = parentField?.type === 'DROPDOWN' || parentField?.type === 'RADIO';
+                                const hasStaticData = parentField?.dataSource?.type === 'STATIC_JSON';
+                                const staticOptions = parentField?.dataSource?.staticData || [];
+
+                                if (isDropdown && hasStaticData && staticOptions.length > 0) {
+                                  return (
+                                    <TextField
+                                      {...field}
+                                      fullWidth
+                                      label="Value"
+                                      select
+                                      size="small"
+                                      helperText="Select from parent field options"
+                                    >
+                                      {staticOptions.map((opt: any) => (
+                                        <MenuItem key={opt.value} value={opt.value}>
+                                          {opt.label}
+                                        </MenuItem>
+                                      ))}
+                                    </TextField>
+                                  );
+                                }
+
+                                return (
+                                  <TextField
+                                    {...field}
+                                    fullWidth
+                                    label="Value"
+                                    size="small"
+                                    placeholder="expected_value"
+                                  />
+                                );
+                              }}
+                            />
+                          </Grid>
+
+                          {/* Actions */}
+                          <Grid item xs={12}>
+                            <Divider sx={{ marginY: 1 }} />
+                            <Button
+                              color="error"
+                              startIcon={<Delete />}
+                              onClick={() => removeField(fieldIndex)}
+                              size="small"
+                            >
+                              Remove Field
+                            </Button>
+                          </Grid>
+                        </Grid>
+                      </AccordionDetails>
+                    </Accordion>
+                </SortableField>
+              );
+            })}
+          </SortableContext>
+        </DndContext>
       )}
     </Box>
   );
 }
-

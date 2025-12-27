@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -32,6 +32,22 @@ import {
   DragIndicator,
   Visibility,
 } from '@mui/icons-material';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,6 +57,9 @@ import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import PageHeader from '@/components/shared/PageHeader';
 import FieldBuilder from '@/components/screen-builder/FieldBuilder';
 import JsonViewer from '@/components/shared/JsonViewer';
+import SortableSection from '@/components/screen-builder/SortableSection';
+import SortableSubsection from '@/components/screen-builder/SortableSubsection';
+import SortableField from '@/components/screen-builder/SortableField';
 import { usePartners } from '@/hooks/use-master-data';
 import { useCreateScreenConfig } from '@/hooks/use-screen-configs';
 import toast from 'react-hot-toast';
@@ -72,6 +91,8 @@ const screenConfigSchema = z.object({
       collapsible: z.boolean().optional(),
       defaultExpanded: z.boolean().optional(),
       hasSubSections: z.boolean().optional(),
+      order: z.number().optional(),
+      contentType: z.enum(['FIELDS', 'SUBSECTIONS']).optional(),
       fields: z.array(z.any()).optional(),
       subSections: z.array(
         z.object({
@@ -81,6 +102,8 @@ const screenConfigSchema = z.object({
           minInstances: z.number().optional(),
           maxInstances: z.number().optional(),
           instanceLabel: z.string().optional(),
+          order: z.number().optional(),
+          parentSectionId: z.string().optional(),
           fields: z.array(z.any()).optional(),
         })
       ).optional(),
@@ -113,15 +136,27 @@ function NewScreenConfigPageContent() {
   const [activeTab, setActiveTab] = useState(0);
   const [isLoading, setIsLoading] = useState(isEditMode || isCloneMode);
   const [completeConfig, setCompleteConfig] = useState<any>(null);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+
+  // Setup sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const {
     control,
     handleSubmit,
     watch,
+    getValues,
     setValue,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<ScreenConfigFormData>({
     resolver: zodResolver(screenConfigSchema),
+    mode: 'onBlur', // Validate on blur instead of onChange
     defaultValues: {
       screenId: '',
       screenName: '',
@@ -656,13 +691,14 @@ function NewScreenConfigPageContent() {
 
   const handleAddSection = () => {
     appendSection({
-      id: `section_${sectionFields.length + 1}`,
+      id: `section_${Date.now()}`,
       title: `Section ${sectionFields.length + 1}`,
       collapsible: false,
       defaultExpanded: true,
       hasSubSections: false,
       fields: [],
       subSections: [],
+      order: sectionFields.length,
     });
   };
 
@@ -679,16 +715,19 @@ function NewScreenConfigPageContent() {
 
   const handleAddSubSection = (sectionIndex: number) => {
     const currentSubSections = watch(`sections.${sectionIndex}.subSections`) || [];
+    const sectionId = watch(`sections.${sectionIndex}.id`);
     setValue(`sections.${sectionIndex}.subSections`, [
       ...currentSubSections,
       {
-        id: `subsection_${currentSubSections.length + 1}`,
+        id: `subsection_${Date.now()}`,
         title: `Sub Section ${currentSubSections.length + 1}`,
         repeatable: false,
         minInstances: 1,
         maxInstances: 5,
         instanceLabel: 'Instance',
         fields: [],
+        order: currentSubSections.length,
+        parentSectionId: sectionId,
       },
     ]);
   };
@@ -713,6 +752,88 @@ function NewScreenConfigPageContent() {
       setValue(`sections.${sectionIndex}.subSections`, []);
       setValue(`sections.${sectionIndex}.fields`, []);
     }
+  };
+
+  // Handle section drag end
+  const handleSectionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragId(null);
+
+    if (!over || active.id === over.id) return;
+
+    const sections = watch('sections') || [];
+    const oldIndex = sections.findIndex((s: any) => s.id === active.id);
+    const newIndex = sections.findIndex((s: any) => s.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(sections, oldIndex, newIndex);
+    const updated = reordered.map((section: any, index: number) => ({
+      ...section,
+      order: index,
+    }));
+
+    setValue('sections', updated);
+    toast.success('Sections reordered');
+  };
+
+  // Handle subsection drag end
+  const handleSubsectionDragEnd = (event: DragEndEvent, sectionIndex: number) => {
+    const { active, over } = event;
+    setActiveDragId(null);
+
+    if (!over || active.id === over.id) return;
+
+    const subsections = watch(`sections.${sectionIndex}.subSections`) || [];
+    const oldIndex = subsections.findIndex((s: any) => s.id === active.id);
+    const newIndex = subsections.findIndex((s: any) => s.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(subsections, oldIndex, newIndex);
+    const updated = reordered.map((subsection: any, index: number) => ({
+      ...subsection,
+      order: index,
+    }));
+
+    setValue(`sections.${sectionIndex}.subSections`, updated);
+    toast.success('Subsections reordered');
+  };
+
+  // Handle field drag end (within section or subsection)
+  const handleFieldDragEnd = (event: DragEndEvent, sectionIndex: number, subsectionIndex?: number) => {
+    const { active, over } = event;
+    setActiveDragId(null);
+
+    if (!over || active.id === over.id) return;
+
+    // Get current fields after FieldBuilder's moveField has updated them
+    setTimeout(() => {
+      const allSections = getValues('sections') || [];
+      const section = allSections[sectionIndex];
+      
+      if (subsectionIndex !== undefined) {
+        const subsection = section?.subSections?.[subsectionIndex];
+        const fields = subsection?.fields || [];
+        const updated = fields.map((field: any, index: number) => ({
+          ...field,
+          order: index,
+        }));
+        setValue(`sections.${sectionIndex}.subSections.${subsectionIndex}.fields`, updated);
+      } else {
+        const fields = section?.fields || [];
+        const updated = fields.map((field: any, index: number) => ({
+          ...field,
+          order: index,
+        }));
+        setValue(`sections.${sectionIndex}.fields`, updated);
+      }
+    }, 0);
+  };
+
+  // Handle drag start
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string);
   };
 
   return (
@@ -763,16 +884,20 @@ function NewScreenConfigPageContent() {
                   <Controller
                     name="screenId"
                     control={control}
-                    render={({ field }) => (
+                    render={({ field, fieldState }) => (
                       <TextField
                         {...field}
                         fullWidth
                         label="Screen ID"
                         required
-                        error={!!errors.screenId}
-                        helperText={errors.screenId?.message || 'Use snake_case format (e.g., personal_details)'}
+                        error={!!fieldState.error}
+                        helperText={fieldState.error?.message || 'Use snake_case format (e.g., personal_details)'}
                         placeholder="e.g., personal_details, income_verification"
                         inputProps={{ 'aria-label': 'Screen ID', 'data-field-id': 'screenId' }}
+                        onBlur={(e) => {
+                          field.onBlur();
+                          trigger('screenId');
+                        }}
                       />
                     )}
                   />
@@ -912,29 +1037,49 @@ function NewScreenConfigPageContent() {
                 </Button>
               </Box>
 
-              {sectionFields.map((section, sectionIndex) => (
-                <Accordion key={section.id} defaultExpanded sx={{ marginBottom: 2 }}>
-                  <AccordionSummary expandIcon={<ExpandMore />}>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        width: '100%',
-                        gap: 1,
-                      }}
-                    >
-                      <DragIndicator color="action" />
-                      <Typography sx={{ flexGrow: 1 }}>
-                        {watch(`sections.${sectionIndex}.title`) || `Section ${sectionIndex + 1}`}
-                      </Typography>
-                      {watch(`sections.${sectionIndex}.hasSubSections`) ? (
-                        <Chip label={`${watch(`sections.${sectionIndex}.subSections`)?.length || 0} subsections`} size="small" color="secondary" />
-                      ) : (
-                        <Chip label={`${watch(`sections.${sectionIndex}.fields`)?.length || 0} fields`} size="small" />
-                      )}
-                    </Box>
-                  </AccordionSummary>
-                  <AccordionDetails>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleSectionDragEnd}
+              >
+                <SortableContext
+                  items={sectionFields.map((s) => s.id).filter(Boolean)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {sectionFields.map((section, sectionIndex) => {
+                    const currentSection = watch(`sections.${sectionIndex}`);
+                    // Guard against missing section or id
+                    if (!currentSection || !currentSection.id) {
+                      return null;
+                    }
+                    return (
+                      <SortableSection
+                        key={section.id}
+                        section={currentSection}
+                        sectionIndex={sectionIndex}
+                      >
+                        <Accordion defaultExpanded sx={{ marginBottom: 2, marginLeft: 4 }}>
+                          <AccordionSummary expandIcon={<ExpandMore />}>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                width: '100%',
+                                gap: 1,
+                              }}
+                            >
+                              <Typography sx={{ flexGrow: 1 }}>
+                                {watch(`sections.${sectionIndex}.title`) || `Section ${sectionIndex + 1}`}
+                              </Typography>
+                              {watch(`sections.${sectionIndex}.hasSubSections`) ? (
+                                <Chip label={`${watch(`sections.${sectionIndex}.subSections`)?.length || 0} subsections`} size="small" color="secondary" />
+                              ) : (
+                                <Chip label={`${watch(`sections.${sectionIndex}.fields`)?.length || 0} fields`} size="small" />
+                              )}
+                            </Box>
+                          </AccordionSummary>
+                          <AccordionDetails>
                     <Grid container spacing={2}>
                       <Grid item xs={12}>
                         <Controller
@@ -1018,8 +1163,28 @@ function NewScreenConfigPageContent() {
                               </Button>
                             </Box>
 
-                            {watch(`sections.${sectionIndex}.subSections`)?.map((subSection: any, subIndex: number) => (
-                              <Card key={subIndex} variant="outlined" sx={{ marginBottom: 2, padding: 2, backgroundColor: 'grey.50' }}>
+                            <DndContext
+                              sensors={sensors}
+                              collisionDetection={closestCenter}
+                              onDragStart={handleDragStart}
+                              onDragEnd={(e) => handleSubsectionDragEnd(e, sectionIndex)}
+                            >
+                              <SortableContext
+                                items={(watch(`sections.${sectionIndex}.subSections`) || []).map((s: any) => s.id).filter(Boolean)}
+                                strategy={verticalListSortingStrategy}
+                              >
+                                {watch(`sections.${sectionIndex}.subSections`)?.map((subSection: any, subIndex: number) => {
+                                  // Guard against missing subsection or id
+                                  if (!subSection || !subSection.id) {
+                                    return null;
+                                  }
+                                  return (
+                                    <SortableSubsection
+                                      key={subSection.id}
+                                      subsection={subSection}
+                                      subsectionIndex={subIndex}
+                                    >
+                                    <Card variant="outlined" sx={{ marginBottom: 2, padding: 2, backgroundColor: 'grey.50', marginLeft: 4 }}>
                                 <Grid container spacing={2}>
                                   <Grid item xs={12}>
                                     <Controller
@@ -1110,9 +1275,11 @@ function NewScreenConfigPageContent() {
                                     <FieldBuilder
                                       control={control}
                                       watch={watch}
+                                      trigger={trigger}
                                       sectionIndex={sectionIndex}
                                       subSectionIndex={subIndex}
                                       fieldArrayName={`sections.${sectionIndex}.subSections.${subIndex}.fields`}
+                                      onFieldDragEnd={(e) => handleFieldDragEnd(e, sectionIndex, subIndex)}
                                     />
                                   </Grid>
 
@@ -1127,8 +1294,12 @@ function NewScreenConfigPageContent() {
                                     </Button>
                                   </Grid>
                                 </Grid>
-                              </Card>
-                            ))}
+                                    </Card>
+                                  </SortableSubsection>
+                                  );
+                                })}
+                              </SortableContext>
+                            </DndContext>
 
                             {(!watch(`sections.${sectionIndex}.subSections`) || watch(`sections.${sectionIndex}.subSections`)?.length === 0) && (
                               <Alert severity="info">
@@ -1145,8 +1316,10 @@ function NewScreenConfigPageContent() {
                           <FieldBuilder
                             control={control}
                             watch={watch}
+                            trigger={trigger}
                             sectionIndex={sectionIndex}
                             fieldArrayName={`sections.${sectionIndex}.fields`}
+                            onFieldDragEnd={(e) => handleFieldDragEnd(e, sectionIndex)}
                           />
                         </Grid>
                       )}
@@ -1162,9 +1335,13 @@ function NewScreenConfigPageContent() {
                         </Button>
                       </Grid>
                     </Grid>
-                  </AccordionDetails>
-                </Accordion>
-              ))}
+                          </AccordionDetails>
+                        </Accordion>
+                      </SortableSection>
+                    );
+                  })}
+                </SortableContext>
+              </DndContext>
             </CardContent>
           </Card>
 
