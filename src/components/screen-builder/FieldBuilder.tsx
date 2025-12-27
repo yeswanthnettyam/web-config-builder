@@ -281,7 +281,7 @@ export default function FieldBuilder({
         >
           <SortableContext
             items={(() => {
-              return fieldFields.map((f, idx) => {
+              return fieldFields.map((f: any, idx: number) => {
                 const fieldData = watch(`${fieldArrayName}.${idx}`);
                 // Use immutable _key for sortable items (never use field.id)
                 if (!fieldData) return null;
@@ -295,7 +295,7 @@ export default function FieldBuilder({
             })()}
             strategy={verticalListSortingStrategy}
           >
-            {fieldFields.map((field, fieldIndex) => {
+            {fieldFields.map((field: any, fieldIndex: number) => {
           const currentFieldType = watch(`${fieldArrayName}.${fieldIndex}.type`);
           const hasDataSource = ['DROPDOWN', 'RADIO'].includes(currentFieldType);
           const hasOtpConfig = currentFieldType === 'OTP_VERIFICATION';
@@ -319,8 +319,8 @@ export default function FieldBuilder({
                 fieldKey = fieldKeysRef.current.get(fieldIndex)!;
               }
               const hasId = !!currentField.id;
-              
-              return (
+
+          return (
                 <SortableField
                   key={fieldKey}
                   fieldKey={fieldKey}
@@ -329,80 +329,80 @@ export default function FieldBuilder({
                   disabled={!hasId}
                 >
                   <Accordion sx={{ marginBottom: 1, marginLeft: hasId ? 4 : 0 }} defaultExpanded>
-                    <AccordionSummary expandIcon={<ExpandMore />}>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          width: '100%',
-                          gap: 1,
-                        }}
-                      >
+              <AccordionSummary expandIcon={<ExpandMore />}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    width: '100%',
+                    gap: 1,
+                  }}
+                >
                         <Typography sx={{ flexGrow: 1, color: hasId ? 'text.primary' : 'text.secondary', fontStyle: hasId ? 'normal' : 'italic' }}>
-                          {watch(`${fieldArrayName}.${fieldIndex}.label`) ||
-                            watch(`${fieldArrayName}.${fieldIndex}.id`) ||
+                    {watch(`${fieldArrayName}.${fieldIndex}.label`) ||
+                      watch(`${fieldArrayName}.${fieldIndex}.id`) ||
                             `Field ${fieldIndex + 1}${hasId ? '' : ' (ID required)'}`}
-                        </Typography>
-                        <Chip
-                          label={watch(`${fieldArrayName}.${fieldIndex}.type`) || 'TEXT'}
-                          size="small"
+                  </Typography>
+                  <Chip
+                    label={watch(`${fieldArrayName}.${fieldIndex}.type`) || 'TEXT'}
+                    size="small"
                           color={hasId ? 'primary' : 'warning'}
-                          variant="outlined"
-                        />
-                      </Box>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Grid container spacing={2}>
-                        {/* Basic Field Properties */}
-                        <Grid item xs={12}>
-                          <Typography variant="caption" fontWeight={600} color="primary">
-                            Basic Properties
-                          </Typography>
-                          <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                        </Grid>
+                    variant="outlined"
+                  />
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Grid container spacing={2}>
+                  {/* Basic Field Properties */}
+                  <Grid item xs={12}>
+                    <Typography variant="caption" fontWeight={600} color="primary">
+                      Basic Properties
+                    </Typography>
+                    <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                  </Grid>
 
-                        <Grid item xs={12} md={6}>
-                          <Controller
-                            name={`${fieldArrayName}.${fieldIndex}.id`}
-                            control={control}
+                  <Grid item xs={12} md={6}>
+                    <Controller
+                      name={`${fieldArrayName}.${fieldIndex}.id`}
+                      control={control}
                             shouldUnregister={false}
-                            rules={{
-                              required: 'Field ID is required',
-                              pattern: {
-                                value: /^[a-z][a-z0-9_]*$/,
-                                message: 'Use snake_case (lowercase with underscores)',
-                              },
-                            }}
-                            render={({ field, fieldState }) => (
-                              <TextField
-                                {...field}
-                                fullWidth
-                                label="Field ID"
-                                required
-                                size="small"
-                                error={!!fieldState.error}
-                                helperText={
-                                  fieldState.error?.message ||
-                                  'Use snake_case (e.g., full_name)'
-                                }
-                                placeholder="e.g., email_address"
+                      rules={{
+                        required: 'Field ID is required',
+                        pattern: {
+                          value: /^[a-z][a-z0-9_]*$/,
+                          message: 'Use snake_case (lowercase with underscores)',
+                        },
+                      }}
+                            render={({ field, fieldState }: { field: any; fieldState: any }) => (
+                        <TextField
+                          {...field}
+                          fullWidth
+                          label="Field ID"
+                          required
+                          size="small"
+                          error={!!fieldState.error}
+                          helperText={
+                            fieldState.error?.message ||
+                            'Use snake_case (e.g., full_name)'
+                          }
+                          placeholder="e.g., email_address"
                                 onBlur={field.onBlur}
                                 autoComplete="off"
                                 inputProps={{
                                   autoComplete: 'off',
                                   'data-field-index': fieldIndex,
                                 }}
-                              />
-                            )}
-                          />
-                        </Grid>
+                        />
+                      )}
+                    />
+                  </Grid>
 
                   <Grid item xs={12} md={6}>
                     <Controller
                       name={`${fieldArrayName}.${fieldIndex}.label`}
                       control={control}
                       rules={{ required: 'Label is required' }}
-                      render={({ field, fieldState }) => (
+                      render={({ field, fieldState }: { field: any; fieldState: any }) => (
                         <TextField
                           {...field}
                           fullWidth
@@ -421,7 +421,7 @@ export default function FieldBuilder({
                     <Controller
                       name={`${fieldArrayName}.${fieldIndex}.type`}
                       control={control}
-                      render={({ field }) => (
+                      render={({ field }: { field: any }) => (
                         <TextField
                           {...field}
                           fullWidth
@@ -447,7 +447,7 @@ export default function FieldBuilder({
                           <Controller
                             name={`${fieldArrayName}.${fieldIndex}.required`}
                             control={control}
-                            render={({ field }) => (
+                            render={({ field }: { field: any }) => (
                               <Checkbox
                                 {...field}
                                 checked={field.value || false}
@@ -462,7 +462,7 @@ export default function FieldBuilder({
                           <Controller
                             name={`${fieldArrayName}.${fieldIndex}.readOnly`}
                             control={control}
-                            render={({ field }) => (
+                            render={({ field }: { field: any }) => (
                               <Checkbox
                                 {...field}
                                 checked={field.value || false}
@@ -493,7 +493,7 @@ export default function FieldBuilder({
                         <Controller
                           name={`${fieldArrayName}.${fieldIndex}.placeholder`}
                           control={control}
-                          render={({ field }) => (
+                          render={({ field }: { field: any }) => (
                             <TextField
                               {...field}
                               fullWidth
@@ -509,7 +509,7 @@ export default function FieldBuilder({
                         <Controller
                           name={`${fieldArrayName}.${fieldIndex}.keyboard`}
                           control={control}
-                          render={({ field }) => (
+                          render={({ field }: { field: any }) => (
                             <TextField
                               {...field}
                               fullWidth
@@ -533,7 +533,7 @@ export default function FieldBuilder({
                             <Controller
                               name={`${fieldArrayName}.${fieldIndex}.min`}
                               control={control}
-                              render={({ field }) => (
+                              render={({ field }: { field: any }) => (
                                 <TextField
                                   {...field}
                                   fullWidth
@@ -549,7 +549,7 @@ export default function FieldBuilder({
                             <Controller
                               name={`${fieldArrayName}.${fieldIndex}.max`}
                               control={control}
-                              render={({ field }) => (
+                              render={({ field }: { field: any }) => (
                                 <TextField
                                   {...field}
                                   fullWidth
@@ -568,7 +568,7 @@ export default function FieldBuilder({
                           <Controller
                             name={`${fieldArrayName}.${fieldIndex}.maxLength`}
                             control={control}
-                            render={({ field }) => (
+                            render={({ field }: { field: any }) => (
                               <TextField
                                 {...field}
                                 fullWidth
@@ -601,7 +601,7 @@ export default function FieldBuilder({
                         <Controller
                           name={`${fieldArrayName}.${fieldIndex}.dataSource.type`}
                           control={control}
-                          render={({ field }) => (
+                          render={({ field }: { field: any }) => (
                             <TextField
                               {...field}
                               fullWidth
@@ -627,7 +627,7 @@ export default function FieldBuilder({
                           <Controller
                             name={`${fieldArrayName}.${fieldIndex}.dataSource.staticData`}
                             control={control}
-                            render={({ field }) => (
+                            render={({ field }: { field: any }) => (
                               <StaticDataInput
                                 value={field.value || []}
                                 onChange={field.onChange}
@@ -644,7 +644,7 @@ export default function FieldBuilder({
                           <Controller
                             name={`${fieldArrayName}.${fieldIndex}.dataSource.masterDataKey`}
                             control={control}
-                            render={({ field }) => (
+                            render={({ field }: { field: any }) => (
                               <TextField
                                 {...field}
                                 fullWidth
@@ -664,7 +664,7 @@ export default function FieldBuilder({
                           <Controller
                             name={`${fieldArrayName}.${fieldIndex}.dataSource.apiEndpoint`}
                             control={control}
-                            render={({ field }) => (
+                            render={({ field }: { field: any }) => (
                               <TextField
                                 {...field}
                                 fullWidth
@@ -697,7 +697,7 @@ export default function FieldBuilder({
                         <Controller
                           name={`${fieldArrayName}.${fieldIndex}.allowedFileTypes`}
                           control={control}
-                          render={({ field }) => (
+                          render={({ field }: { field: any }) => (
                             <TextField
                               {...field}
                               fullWidth
@@ -719,7 +719,7 @@ export default function FieldBuilder({
                         <Controller
                           name={`${fieldArrayName}.${fieldIndex}.maxFileSizeMB`}
                           control={control}
-                          render={({ field }) => (
+                          render={({ field }: { field: any }) => (
                             <TextField
                               {...field}
                               fullWidth
@@ -736,7 +736,7 @@ export default function FieldBuilder({
                         <Controller
                           name={`${fieldArrayName}.${fieldIndex}.maxFiles`}
                           control={control}
-                          render={({ field }) => (
+                          render={({ field }: { field: any }) => (
                             <TextField
                               {...field}
                               fullWidth
@@ -769,7 +769,7 @@ export default function FieldBuilder({
                         <Controller
                           name={`${fieldArrayName}.${fieldIndex}.dateConfig.format`}
                           control={control}
-                          render={({ field }) => (
+                          render={({ field }: { field: any }) => (
                             <TextField
                               {...field}
                               fullWidth
@@ -792,7 +792,7 @@ export default function FieldBuilder({
                         <Controller
                           name={`${fieldArrayName}.${fieldIndex}.dateConfig.validationType`}
                           control={control}
-                          render={({ field }) => (
+                          render={({ field }: { field: any }) => (
                             <TextField
                               {...field}
                               fullWidth
@@ -811,211 +811,211 @@ export default function FieldBuilder({
                           )}
                         />
                       </Grid>
-                            </>
-                          )}
+                    </>
+                  )}
 
-                          {/* OTP Verification */}
-                          {hasOtpConfig && (
-                            <>
-                              <Grid item xs={12}>
-                                <Typography
-                                  variant="caption"
-                                  fontWeight={600}
-                                  color="primary"
-                                >
-                                  OTP Configuration
-                                </Typography>
-                                <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                              </Grid>
+                  {/* OTP Verification */}
+                  {hasOtpConfig && (
+                    <>
+                      <Grid item xs={12}>
+                        <Typography
+                          variant="caption"
+                          fontWeight={600}
+                          color="primary"
+                        >
+                          OTP Configuration
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
 
-                              <Grid item xs={12} md={4}>
-                                <Controller
-                                  name={`${fieldArrayName}.${fieldIndex}.otpConfig.channel`}
-                                  control={control}
-                                  render={({ field }) => (
-                                    <TextField
-                                      {...field}
-                                      fullWidth
-                                      label="OTP Channel"
-                                      select
-                                      required
-                                      size="small"
-                                    >
-                                      {OTP_CHANNELS.map((channel) => (
-                                        <MenuItem
-                                          key={channel.value}
-                                          value={channel.value}
-                                        >
-                                          {channel.label}
-                                        </MenuItem>
-                                      ))}
-                                    </TextField>
-                                  )}
-                                />
-                              </Grid>
-
-                              <Grid item xs={12} md={4}>
-                                <Controller
-                                  name={`${fieldArrayName}.${fieldIndex}.otpConfig.linkedField`}
-                                  control={control}
-                                  render={({ field }) => (
-                                    <TextField
-                                      {...field}
-                                      fullWidth
-                                      label="Linked Field ID"
-                                      size="small"
-                                      placeholder="e.g., mobile"
-                                      helperText="Field to send OTP to"
-                                    />
-                                  )}
-                                />
-                              </Grid>
-
-                              <Grid item xs={12} md={4}>
-                                <Controller
-                                  name={`${fieldArrayName}.${fieldIndex}.otpConfig.otpLength`}
-                                  control={control}
-                                  render={({ field }) => (
-                                    <TextField
-                                      {...field}
-                                      fullWidth
-                                      label="OTP Length"
-                                      type="number"
-                                      size="small"
-                                      inputProps={{ min: 4, max: 8 }}
-                                    />
-                                  )}
-                                />
-                              </Grid>
-                            </>
-                          )}
-
-                          {/* Conditional Logic */}
-                          <Grid item xs={12}>
-                            <Typography
-                              variant="caption"
-                              fontWeight={600}
-                              color="secondary"
-                            >
-                              Conditional Logic (Optional)
-                            </Typography>
-                            <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                          </Grid>
-
-                          <Grid item xs={12} md={4}>
-                            <Controller
-                              name={`${fieldArrayName}.${fieldIndex}.visibleWhen.field`}
-                              control={control}
-                              render={({ field }) => {
-                                const availableFields = getAllFieldIds();
-                                return (
-                                  <TextField
-                                    {...field}
-                                    fullWidth
-                                    label="Visible When Field"
-                                    select
-                                    size="small"
-                                    helperText="Select a field from this section"
-                                  >
-                                    <MenuItem value="">
-                                      <em>None</em>
-                                    </MenuItem>
-                                    {availableFields.map((f: { value: string; label: string }) => (
-                                      <MenuItem key={f.value} value={f.value}>
-                                        {f.label}
-                                      </MenuItem>
-                                    ))}
-                                  </TextField>
-                                );
-                              }}
-                            />
-                          </Grid>
-
-                          <Grid item xs={12} md={4}>
-                            <Controller
-                              name={`${fieldArrayName}.${fieldIndex}.visibleWhen.operator`}
-                              control={control}
-                              render={({ field }) => (
-                                <TextField
-                                  {...field}
-                                  fullWidth
-                                  label="Operator"
-                                  select
-                                  size="small"
-                                >
-                                  {OPERATORS.map((op) => (
-                                    <MenuItem key={op.value} value={op.value}>
-                                      {op.label}
-                                    </MenuItem>
-                                  ))}
-                                </TextField>
-                              )}
-                            />
-                          </Grid>
-
-                          <Grid item xs={12} md={4}>
-                            <Controller
-                              name={`${fieldArrayName}.${fieldIndex}.visibleWhen.value`}
-                              control={control}
-                              render={({ field }) => {
-                                const selectedField = watch(
-                                  `${fieldArrayName}.${fieldIndex}.visibleWhen.field`
-                                );
-                                const allFields = watch(fieldArrayName) || [];
-                                const parentField = allFields.find((f: any) => f.id === selectedField);
-                                const isDropdown = parentField?.type === 'DROPDOWN' || parentField?.type === 'RADIO';
-                                const hasStaticData = parentField?.dataSource?.type === 'STATIC_JSON';
-                                const staticOptions = parentField?.dataSource?.staticData || [];
-
-                                if (isDropdown && hasStaticData && staticOptions.length > 0) {
-                                  return (
-                                    <TextField
-                                      {...field}
-                                      fullWidth
-                                      label="Value"
-                                      select
-                                      size="small"
-                                      helperText="Select from parent field options"
-                                    >
-                                      {staticOptions.map((opt: any) => (
-                                        <MenuItem key={opt.value} value={opt.value}>
-                                          {opt.label}
-                                        </MenuItem>
-                                      ))}
-                                    </TextField>
-                                  );
-                                }
-
-                                return (
-                                  <TextField
-                                    {...field}
-                                    fullWidth
-                                    label="Value"
-                                    size="small"
-                                    placeholder="expected_value"
-                                  />
-                                );
-                              }}
-                            />
-                          </Grid>
-
-                          {/* Actions */}
-                          <Grid item xs={12}>
-                            <Divider sx={{ marginY: 1 }} />
-                            <Button
-                              color="error"
-                              startIcon={<Delete />}
-                              onClick={() => removeField(fieldIndex)}
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.channel`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="OTP Channel"
+                              select
+                              required
                               size="small"
                             >
-                              Remove Field
-                            </Button>
-                          </Grid>
-                        </Grid>
-                      </AccordionDetails>
-                    </Accordion>
+                              {OTP_CHANNELS.map((channel) => (
+                                <MenuItem
+                                  key={channel.value}
+                                  value={channel.value}
+                                >
+                                  {channel.label}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.linkedField`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Linked Field ID"
+                              size="small"
+                              placeholder="e.g., mobile"
+                              helperText="Field to send OTP to"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.otpLength`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="OTP Length"
+                              type="number"
+                              size="small"
+                              inputProps={{ min: 4, max: 8 }}
+                            />
+                          )}
+                        />
+                      </Grid>
+                    </>
+                  )}
+
+                  {/* Conditional Logic */}
+                  <Grid item xs={12}>
+                    <Typography
+                      variant="caption"
+                      fontWeight={600}
+                      color="secondary"
+                    >
+                      Conditional Logic (Optional)
+                    </Typography>
+                    <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                    <Controller
+                      name={`${fieldArrayName}.${fieldIndex}.visibleWhen.field`}
+                      control={control}
+                      render={({ field }: { field: any }) => {
+                        const availableFields = getAllFieldIds();
+                        return (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Visible When Field"
+                            select
+                            size="small"
+                            helperText="Select a field from this section"
+                          >
+                            <MenuItem value="">
+                              <em>None</em>
+                            </MenuItem>
+                            {availableFields.map((f: { value: string; label: string }) => (
+                              <MenuItem key={f.value} value={f.value}>
+                                {f.label}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        );
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                    <Controller
+                      name={`${fieldArrayName}.${fieldIndex}.visibleWhen.operator`}
+                      control={control}
+                      render={({ field }: { field: any }) => (
+                        <TextField
+                          {...field}
+                          fullWidth
+                          label="Operator"
+                          select
+                          size="small"
+                        >
+                          {OPERATORS.map((op) => (
+                            <MenuItem key={op.value} value={op.value}>
+                              {op.label}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      )}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                    <Controller
+                      name={`${fieldArrayName}.${fieldIndex}.visibleWhen.value`}
+                      control={control}
+                      render={({ field }: { field: any }) => {
+                        const selectedField = watch(
+                          `${fieldArrayName}.${fieldIndex}.visibleWhen.field`
+                        );
+                        const allFields = watch(fieldArrayName) || [];
+                        const parentField = allFields.find((f: any) => f.id === selectedField);
+                        const isDropdown = parentField?.type === 'DROPDOWN' || parentField?.type === 'RADIO';
+                        const hasStaticData = parentField?.dataSource?.type === 'STATIC_JSON';
+                        const staticOptions = parentField?.dataSource?.staticData || [];
+
+                        if (isDropdown && hasStaticData && staticOptions.length > 0) {
+                          return (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Value"
+                              select
+                              size="small"
+                              helperText="Select from parent field options"
+                            >
+                              {staticOptions.map((opt: any) => (
+                                <MenuItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          );
+                        }
+
+                        return (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Value"
+                            size="small"
+                            placeholder="expected_value"
+                          />
+                        );
+                      }}
+                    />
+                  </Grid>
+
+                  {/* Actions */}
+                  <Grid item xs={12}>
+                    <Divider sx={{ marginY: 1 }} />
+                    <Button
+                      color="error"
+                      startIcon={<Delete />}
+                      onClick={() => removeField(fieldIndex)}
+                      size="small"
+                    >
+                      Remove Field
+                    </Button>
+                  </Grid>
+                </Grid>
+              </AccordionDetails>
+            </Accordion>
                 </SortableField>
-              );
+          );
             })}
           </SortableContext>
         </DndContext>
