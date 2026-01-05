@@ -34,6 +34,8 @@ import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import PageHeader from '@/components/shared/PageHeader';
 import JsonViewer from '@/components/shared/JsonViewer';
 import { usePartners, useProducts, useConfiguredScreensSimple } from '@/hooks/use-master-data';
+import { FlowScopeSelector } from '@/components/config/FlowScopeSelector';
+import { FormProvider } from 'react-hook-form';
 import RightPanel from '@/components/flow-builder/RightPanel';
 import NodeConfigPanel from '@/components/flow-builder/NodeConfigPanel';
 import EdgeConfigPanel from '@/components/flow-builder/EdgeConfigPanel';
@@ -103,8 +105,11 @@ function FlowCanvas({
 
 interface FlowFormData {
   flowId: string;
-  partnerCode: string;
-  productCode: string;
+  scope: {
+    type: 'PRODUCT' | 'PARTNER'; // BRANCH not allowed for flows
+    productCode: string;
+    partnerCode?: string;
+  };
   startScreen: string;
 }
 
@@ -144,20 +149,25 @@ function NewFlowPageContent() {
   // Version counter to force re-renders when configs change
   const [configVersion, setConfigVersion] = useState(0);
   
+  const methods = useForm<FlowFormData>({
+    defaultValues: {
+      flowId: '',
+      scope: {
+        type: 'PRODUCT',
+        productCode: '',
+        partnerCode: '',
+      },
+      startScreen: '',
+    },
+  });
+
   const {
     control,
     handleSubmit,
     formState: { errors },
     watch,
     reset,
-  } = useForm<FlowFormData>({
-    defaultValues: {
-      flowId: '',
-      partnerCode: '',
-      productCode: '',
-      startScreen: '',
-    },
-  });
+  } = methods;
 
   const formValues = watch();
 
@@ -171,10 +181,16 @@ function NewFlowPageContent() {
         console.log('📥 Loading existing flow:', existingFlow);
         
         // Populate form fields
+        // Handle both old format (partnerCode/productCode) and new format (scope)
+        const existingScope = existingFlow.config.scope || {
+          type: existingFlow.config.partnerCode ? 'PARTNER' : 'PRODUCT',
+          productCode: existingFlow.config.productCode || '',
+          partnerCode: existingFlow.config.partnerCode || undefined,
+        };
+
         reset({
           flowId: cloneId ? `${existingFlow.flowId}_clone` : existingFlow.flowId,
-          partnerCode: existingFlow.config.partnerCode,
-          productCode: existingFlow.config.productCode,
+          scope: existingScope,
           startScreen: existingFlow.config.startScreen,
         });
         
@@ -721,12 +737,12 @@ function NewFlowPageContent() {
         errors.push('Flow ID is required');
       }
 
-      // Check if partnerCode and productCode are valid
-      if (!formValues.partnerCode || formValues.partnerCode.trim() === '') {
-        warnings.push('Partner code is not set (optional)');
+      // Check if scope is valid
+      if (!formValues.scope?.productCode || formValues.scope.productCode.trim() === '') {
+        errors.push('Product is required');
       }
-      if (!formValues.productCode || formValues.productCode.trim() === '') {
-        warnings.push('Product code is not set (optional)');
+      if (formValues.scope?.type === 'PARTNER' && (!formValues.scope?.partnerCode || formValues.scope.partnerCode.trim() === '')) {
+        errors.push('Partner is required for PARTNER scope');
       }
 
       // Validate screen configs structure
@@ -786,16 +802,17 @@ function NewFlowPageContent() {
           flowId: formValues.flowId,
           version: 1,
           status: flowStatus,
-          partnerCode: formValues.partnerCode,
-          productCode: formValues.productCode,
+          scope: {
+            type: formValues.scope.type,
+            productCode: formValues.scope.productCode,
+            partnerCode: formValues.scope.partnerCode,
+          },
           startScreen: formValues.startScreen,
           screens,
-          metadata: {
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            createdBy: 'current_user',
-            updatedBy: 'current_user',
-          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: 'current_user',
+          updatedBy: 'current_user',
         };
 
         // Validate JSON structure
@@ -900,16 +917,17 @@ function NewFlowPageContent() {
       flowId: formValues.flowId,
       version: 1,
       status: flowStatus,
-      partnerCode: formValues.partnerCode,
-      productCode: formValues.productCode,
+      scope: {
+        type: formValues.scope.type,
+        productCode: formValues.scope.productCode,
+        partnerCode: formValues.scope.partnerCode,
+      },
       startScreen: formValues.startScreen,
       screens,
-      metadata: {
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: 'current_user',
-        updatedBy: 'current_user',
-      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      createdBy: 'current_user',
+      updatedBy: 'current_user',
     };
   }, [formValues, configuredScreens, screenConfigs, flowStatus]);
 
@@ -1102,84 +1120,39 @@ function NewFlowPageContent() {
           </Tabs>
         </Box>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
-          {activeTab === 0 && (
-          <Box>
-          <Card sx={{ marginBottom: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Basic Information
-              </Typography>
+        <FormProvider {...methods}>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            {activeTab === 0 && (
+            <Box>
+            <Card sx={{ marginBottom: 3 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Basic Information
+                </Typography>
 
-              <Grid container spacing={3} sx={{ marginTop: 1 }}>
-                <Grid item xs={12} md={6}>
-                  <Controller
-                    name="flowId"
-                    control={control}
-                    rules={{ required: 'Flow ID is required' }}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        fullWidth
-                        label="Flow ID"
-                        required
-                        error={!!errors.flowId}
-                        helperText={errors.flowId?.message}
-                        placeholder="e.g., pl_flow_001"
-                      />
-                    )}
-                  />
-                </Grid>
+                <Grid container spacing={3} sx={{ marginTop: 1 }}>
+                  <Grid item xs={12} md={6}>
+                    <Controller
+                      name="flowId"
+                      control={control}
+                      rules={{ required: 'Flow ID is required' }}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          fullWidth
+                          label="Flow ID"
+                          required
+                          error={!!errors.flowId}
+                          helperText={errors.flowId?.message}
+                          placeholder="e.g., pl_flow_001"
+                        />
+                      )}
+                    />
+                  </Grid>
 
-                <Grid item xs={12} md={6}>
-                  <Controller
-                    name="partnerCode"
-                    control={control}
-                    rules={{ required: 'Partner is required' }}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        fullWidth
-                        label="Partner"
-                        select
-                        required
-                        error={!!errors.partnerCode}
-                        helperText={errors.partnerCode?.message}
-                      >
-                        {partners?.map((partner) => (
-                              <MenuItem key={partner.partnerCode} value={partner.partnerCode}>
-                            {partner.partnerName}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    )}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Controller
-                    name="productCode"
-                    control={control}
-                    rules={{ required: 'Product is required' }}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        fullWidth
-                        label="Product"
-                        select
-                        required
-                        error={!!errors.productCode}
-                        helperText={errors.productCode?.message}
-                      >
-                        {products?.map((product) => (
-                              <MenuItem key={product.productCode} value={product.productCode}>
-                            {product.productName}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    )}
-                  />
-                </Grid>
+                  <Grid item xs={12}>
+                    <FlowScopeSelector />
+                  </Grid>
 
                 <Grid item xs={12} md={6}>
                   <Controller
@@ -1317,8 +1290,7 @@ function NewFlowPageContent() {
               <JsonViewer
                 data={{
                   flowId: formValues.flowId,
-                  partnerCode: formValues.partnerCode,
-                  productCode: formValues.productCode,
+                  scope: formValues.scope,
                   startScreen: formValues.startScreen,
                   screens: Array.from(screenConfigs.values()),
                   edges: Array.from(edgeConditions.entries()).map(([id, condition]) => ({
@@ -1331,7 +1303,8 @@ function NewFlowPageContent() {
               />
             </CardContent>
           </Card>
-        )}
+          )}
+        </FormProvider>
 
         {/* Right Panel */}
         <RightPanel open={rightPanelOpen} onClose={() => setRightPanelOpen(false)}>

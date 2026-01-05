@@ -30,6 +30,7 @@ import {
   Delete,
   MoreVert,
 } from '@mui/icons-material';
+import { Chip } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import ProtectedRoute from '@/components/layout/ProtectedRoute';
@@ -38,6 +39,7 @@ import FilterPanel, { Filter } from '@/components/shared/FilterPanel';
 import LoadingState from '@/components/shared/LoadingState';
 import EmptyState from '@/components/shared/EmptyState';
 import StatusChip from '@/components/shared/StatusChip';
+import { ScopeBadge } from '@/components/config/ScopeBadge';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import JsonViewer from '@/components/shared/JsonViewer';
 import { usePartners, useProducts } from '@/hooks/use-master-data';
@@ -70,12 +72,19 @@ export default function FlowBuilderPage() {
     // Apply filters
     let filtered = cachedFlows;
     
+    // Handle both old format (partnerCode/productCode) and new format (scope)
     if (filters.partnerCode) {
-      filtered = filtered.filter(f => f.config.partnerCode === filters.partnerCode);
+      filtered = filtered.filter(f => 
+        f.config.scope?.partnerCode === filters.partnerCode || 
+        f.config.partnerCode === filters.partnerCode
+      );
     }
     
     if (filters.productCode) {
-      filtered = filtered.filter(f => f.config.productCode === filters.productCode);
+      filtered = filtered.filter(f => 
+        f.config.scope?.productCode === filters.productCode || 
+        f.config.productCode === filters.productCode
+      );
     }
     
     if (filters.status) {
@@ -230,8 +239,9 @@ export default function FlowBuilderPage() {
                 <TableHead>
                   <TableRow>
                     <TableCell>Flow ID</TableCell>
-                    <TableCell>Partner</TableCell>
                     <TableCell>Product</TableCell>
+                    <TableCell>Partner</TableCell>
+                    <TableCell>Scope</TableCell>
                     <TableCell>Start Screen</TableCell>
                     <TableCell>Screens</TableCell>
                     <TableCell>Version</TableCell>
@@ -248,8 +258,21 @@ export default function FlowBuilderPage() {
                       sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                     >
                       <TableCell>{flow.flowId}</TableCell>
-                      <TableCell>{flow.config.partnerCode}</TableCell>
-                      <TableCell>{flow.config.productCode}</TableCell>
+                      <TableCell>
+                        {flow.config.scope?.productCode || flow.config.productCode}
+                      </TableCell>
+                      <TableCell>
+                        {flow.config.scope?.partnerCode || flow.config.partnerCode || (
+                          <Chip label="ALL" size="small" variant="outlined" />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {flow.config.scope ? (
+                          <ScopeBadge scope={flow.config.scope} />
+                        ) : (
+                          <Chip label="PARTNER" size="small" color="success" />
+                        )}
+                      </TableCell>
                       <TableCell>{flow.config.startScreen}</TableCell>
                       <TableCell>{flow.config.screens.length}</TableCell>
                       <TableCell>v{flow.version}</TableCell>

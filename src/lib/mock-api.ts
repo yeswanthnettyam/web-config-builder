@@ -15,7 +15,7 @@ import {
 } from '@/types';
 
 // Mock delay to simulate network requests
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Mock Users
 export const mockUsers: User[] = [
@@ -158,6 +158,7 @@ export const mockScreenConfigs: ScreenConfig[] = [
     status: 'ACTIVE',
     scope: {
       type: 'PARTNER',
+      productCode: 'PL',
       partnerCode: 'PARTNER_001',
     },
     ui: {
@@ -205,12 +206,10 @@ export const mockScreenConfigs: ScreenConfig[] = [
         },
       ],
     },
-    metadata: {
-      createdAt: '2025-01-01T00:00:00Z',
-      updatedAt: '2025-01-01T00:00:00Z',
-      createdBy: 'admin@kaleidofin.com',
-      updatedBy: 'admin@kaleidofin.com',
-    },
+    createdAt: '2025-01-01T00:00:00Z',
+    updatedAt: '2025-01-01T00:00:00Z',
+    createdBy: 'admin@kaleidofin.com',
+    updatedBy: 'admin@kaleidofin.com',
   },
 ];
 
@@ -220,8 +219,11 @@ export const mockFlowConfigs: FlowConfig[] = [
     flowId: 'flow_pl_001',
     version: 1,
     status: 'ACTIVE',
-    partnerCode: 'PARTNER_001',
-    productCode: 'PL',
+    scope: {
+      type: 'PARTNER',
+      productCode: 'PL',
+      partnerCode: 'PARTNER_001',
+    },
     startScreen: 'personal_details',
     screens: [
       {
@@ -262,12 +264,10 @@ export const mockFlowConfigs: FlowConfig[] = [
         conditions: [],
       },
     ],
-    metadata: {
-      createdAt: '2025-01-01T00:00:00Z',
-      updatedAt: '2025-01-01T00:00:00Z',
-      createdBy: 'admin@kaleidofin.com',
-      updatedBy: 'admin@kaleidofin.com',
-    },
+    createdAt: '2025-01-01T00:00:00Z',
+    updatedAt: '2025-01-01T00:00:00Z',
+    createdBy: 'admin@kaleidofin.com',
+    updatedBy: 'admin@kaleidofin.com',
   },
 ];
 

@@ -17,6 +17,7 @@ export const SCREEN_CONFIG_ENDPOINTS = {
   ACTIVATE: (configId: string) => `/configs/screens/${configId}/activate`,
   DEPRECATE: (configId: string) => `/configs/screens/${configId}/deprecate`,
   DELETE: (configId: string) => `/configs/screens/${configId}`,
+  RESOLVE: '/configs/screens/resolve',
 };
 
 // Validation Config APIs

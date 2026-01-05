@@ -35,12 +35,19 @@ export interface LoginResponse {
 // ============================================
 
 export type ConfigStatus = 'DRAFT' | 'ACTIVE' | 'DEPRECATED';
-export type ScopeType = 'PARTNER' | 'BRANCH';
+export type ScopeType = 'PRODUCT' | 'PARTNER' | 'BRANCH';
 
 export interface ConfigScope {
   type: ScopeType;
-  partnerCode: string;
+  productCode: string;
+  partnerCode?: string;
   branchCode?: string;
+}
+
+export interface ResolvedConfig<T = any> {
+  config: T;
+  resolvedFrom: ScopeType;
+  inheritanceChain: string[];
 }
 
 export interface ConfigMetadata {
@@ -170,7 +177,11 @@ export interface ScreenConfig {
   scope: ConfigScope;
   ui: ScreenUIConfig;
   validation?: ValidationConfig;
-  metadata: ConfigMetadata;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+  changeReason?: string;
 }
 
 // ============================================
@@ -197,8 +208,13 @@ export interface ValidationConfig {
   screenId: string;
   version: number;
   status: ConfigStatus;
+  scope: ConfigScope;
   rules: ValidationRule[];
-  metadata: ConfigMetadata;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+  changeReason?: string;
 }
 
 // ============================================
@@ -236,8 +252,13 @@ export interface MappingConfig {
   screenId: string;
   version: number;
   status: ConfigStatus;
+  scope: ConfigScope;
   mappings: FieldMapping[];
-  metadata: ConfigMetadata;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+  changeReason?: string;
 }
 
 // ============================================
@@ -386,11 +407,14 @@ export interface FlowConfig {
   flowId: string;
   version: number;
   status: ConfigStatus;
-  partnerCode: string;
-  productCode: string;
+  scope: ConfigScope; // PRODUCT or PARTNER only (BRANCH not allowed for flows)
   startScreen: string;
   screens: ScreenFlowNode[];
-  metadata: ConfigMetadata;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+  changeReason?: string;
 }
 
 export interface FlowValidationResult {

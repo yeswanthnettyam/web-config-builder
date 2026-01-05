@@ -28,6 +28,7 @@ export const CONFIG_STATUS = {
 
 // Scope Types
 export const SCOPE_TYPES = {
+  PRODUCT: 'PRODUCT',
   PARTNER: 'PARTNER',
   BRANCH: 'BRANCH',
 } as const;

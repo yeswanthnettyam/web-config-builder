@@ -49,7 +49,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import { useForm, Controller, useFieldArray, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -60,7 +60,8 @@ import JsonViewer from '@/components/shared/JsonViewer';
 import SortableSection from '@/components/screen-builder/SortableSection';
 import SortableSubsection from '@/components/screen-builder/SortableSubsection';
 import SortableField from '@/components/screen-builder/SortableField';
-import { usePartners } from '@/hooks/use-master-data';
+import { usePartners, useProducts, useBranches } from '@/hooks/use-master-data';
+import { ConfigScopeSelector } from '@/components/config/ConfigScopeSelector';
 import { useCreateScreenConfig } from '@/hooks/use-screen-configs';
 import toast from 'react-hot-toast';
 import {
@@ -80,9 +81,12 @@ const screenConfigSchema = z.object({
   screenId: z.string().min(1, 'Screen ID is required').regex(/^[a-z][a-z0-9_]*$/, 'Screen ID must be snake_case (lowercase with underscores)'),
   screenName: z.string().min(1, 'Screen name is required'),
   title: z.string().min(1, 'Title is required'),
-  partnerCode: z.string().min(1, 'Partner is required'),
-  scopeType: z.enum(['PARTNER', 'BRANCH']),
-  branchCode: z.string().optional(),
+  scope: z.object({
+    type: z.enum(['PRODUCT', 'PARTNER', 'BRANCH']),
+    productCode: z.string().min(1, 'Product is required'),
+    partnerCode: z.string().optional(),
+    branchCode: z.string().optional(),
+  }),
   layout: z.string().min(1, 'Layout is required'),
   sections: z.array(
     z.object({
@@ -146,23 +150,19 @@ function NewScreenConfigPageContent() {
     })
   );
 
-  const {
-    control,
-    handleSubmit,
-    watch,
-    getValues,
-    setValue,
-    trigger,
-    formState: { errors, isSubmitting },
-  } = useForm<ScreenConfigFormData>({
+  const methods = useForm<ScreenConfigFormData>({
     resolver: zodResolver(screenConfigSchema),
     mode: 'onBlur', // Validate on blur instead of onChange
     defaultValues: {
       screenId: '',
       screenName: '',
       title: '',
-      partnerCode: '',
-      scopeType: 'PARTNER',
+      scope: {
+        type: 'PRODUCT',
+        productCode: '',
+        partnerCode: '',
+        branchCode: '',
+      },
       layout: 'FORM',
       sections: [
         {
@@ -187,6 +187,16 @@ function NewScreenConfigPageContent() {
       ],
     },
   });
+
+  const {
+    control,
+    handleSubmit,
+    watch,
+    getValues,
+    setValue,
+    trigger,
+    formState: { errors, isSubmitting },
+  } = methods;
 
   const {
     fields: sectionFields,
@@ -220,9 +230,14 @@ function NewScreenConfigPageContent() {
         setValue('screenId', isCloneMode ? `${existingConfig.screenId}_copy_${Date.now()}` : existingConfig.screenId);
         setValue('screenName', isCloneMode ? `${existingConfig.screenName} (Copy)` : existingConfig.screenName);
         setValue('title', existingConfig.config.title);
-        setValue('partnerCode', existingConfig.config.scope?.partnerCode || '');
-        setValue('branchCode', existingConfig.config.scope?.branchCode || '');
-        setValue('scopeType', existingConfig.config.scope?.type || 'PARTNER');
+        // Handle both old format (partnerCode/scopeType) and new format (scope)
+        const existingScope = existingConfig.config.scope || {
+          type: existingConfig.config.scope?.type || (existingConfig.config.scope?.partnerCode ? 'PARTNER' : 'PRODUCT'),
+          productCode: existingConfig.config.scope?.productCode || '',
+          partnerCode: existingConfig.config.scope?.partnerCode || '',
+          branchCode: existingConfig.config.scope?.branchCode || '',
+        };
+        setValue('scope', existingScope);
         setValue('layout', existingConfig.config.ui?.layout || 'FORM');
         
         // Load sections
@@ -257,12 +272,10 @@ function NewScreenConfigPageContent() {
         screenId: formData.screenId,
         screenName: formData.screenName,
         title: formData.title,
-        partnerCode: formData.partnerCode,
-        scopeType: formData.scopeType,
+        scope: formData.scope,
         layout: formData.layout,
         sections: formData.sections,
         actions: formData.actions,
-        branchCode: formData.branchCode,
       };
       
       // If screen exists in cache, load its validations
@@ -451,9 +464,17 @@ function NewScreenConfigPageContent() {
       errors.push('Configuration Title is required');
       if (!firstErrorField) firstErrorField = 'title';
     }
-    if (!data.partnerCode) {
-      errors.push('Partner is required');
-      if (!firstErrorField) firstErrorField = 'partnerCode';
+    if (!data.scope?.productCode) {
+      errors.push('Product is required');
+      if (!firstErrorField) firstErrorField = 'scope.productCode';
+    }
+    if (data.scope?.type === 'PARTNER' && !data.scope?.partnerCode) {
+      errors.push('Partner is required for PARTNER scope');
+      if (!firstErrorField) firstErrorField = 'scope.partnerCode';
+    }
+    if (data.scope?.type === 'BRANCH' && !data.scope?.branchCode) {
+      errors.push('Branch is required for BRANCH scope');
+      if (!firstErrorField) firstErrorField = 'scope.branchCode';
     }
     if (!data.layout) {
       errors.push('Layout Type is required');
@@ -633,22 +654,16 @@ function NewScreenConfigPageContent() {
         title: data.title,
         version: 1,
         status: 'DRAFT',
-        scope: {
-          type: data.scopeType,
-          partnerCode: data.partnerCode,
-          branchCode: data.branchCode,
-        },
+        scope: data.scope,
         ui: {
           layout: data.layout as any,
           sections: sections,
           actions: data.actions as any[],
         },
-        metadata: {
-          createdAt: existingConfig?.config?.metadata?.createdAt || existingConfig?.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          createdBy: existingConfig?.config?.metadata?.createdBy || 'current_user',
-          updatedBy: 'current_user',
-        },
+        createdAt: existingConfig?.config?.createdAt || existingConfig?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: existingConfig?.config?.createdBy || 'current_user',
+        updatedBy: 'current_user',
       };
 
       // Preserve existing validations if they exist (add to config object for cache storage)
@@ -869,7 +884,8 @@ function NewScreenConfigPageContent() {
           </Tabs>
         </Box>
 
-        <form onSubmit={handleSubmit(onSubmit)}>
+            <FormProvider {...methods}>
+              <form onSubmit={handleSubmit(onSubmit)}>
           {activeTab === 0 && (
             <>
               <Card sx={{ marginBottom: 3 }}>
@@ -940,52 +956,8 @@ function NewScreenConfigPageContent() {
                   />
                 </Grid>
 
-                <Grid item xs={12} md={6}>
-                  <Controller
-                    name="partnerCode"
-                    control={control}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        fullWidth
-                        label="Partner"
-                        select
-                        required
-                        error={!!errors.partnerCode}
-                        helperText={errors.partnerCode?.message}
-                        inputProps={{ 'aria-label': 'Partner', 'data-field-id': 'partnerCode' }}
-                      >
-                        {partners?.map((partner) => (
-                          <MenuItem
-                            key={partner.partnerCode}
-                            value={partner.partnerCode}
-                          >
-                            {partner.partnerName}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    )}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Controller
-                    name="scopeType"
-                    control={control}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        fullWidth
-                        label="Scope Type"
-                        select
-                        required
-                        inputProps={{ 'aria-label': 'Scope Type' }}
-                      >
-                        <MenuItem value="PARTNER">Partner</MenuItem>
-                        <MenuItem value="BRANCH">Branch</MenuItem>
-                      </TextField>
-                    )}
-                  />
+                <Grid item xs={12}>
+                  <ConfigScopeSelector />
                 </Grid>
 
                 <Grid item xs={12} md={6}>
@@ -1535,7 +1507,8 @@ function NewScreenConfigPageContent() {
               </Box>
             </Box>
           )}
-        </form>
+            </form>
+            </FormProvider>
       </DashboardLayout>
     </ProtectedRoute>
   );
