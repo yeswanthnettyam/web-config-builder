@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import {
   Box,
   Card,
@@ -48,11 +48,15 @@ import {
   KEYBOARD_TYPES,
   OTP_CHANNELS,
   OPERATORS,
+  VERIFICATION_MODES,
+  INPUT_DATA_TYPES,
+  INPUT_KEYBOARD_TYPES,
+  HTTP_METHODS,
 } from '@/lib/constants';
 
 // Component for static data input with local state
 function StaticDataInput({ value, onChange }: { value: any[]; onChange: (value: any[]) => void }) {
-  const [textValue, setTextValue] = React.useState(() => {
+  const [textValue, setTextValue] = useState(() => {
     if (Array.isArray(value) && value.length > 0) {
       return value
         .map((opt: any) => {
@@ -299,9 +303,12 @@ export default function FieldBuilder({
           const currentFieldType = watch(`${fieldArrayName}.${fieldIndex}.type`);
           const hasDataSource = ['DROPDOWN', 'RADIO'].includes(currentFieldType);
           const hasOtpConfig = currentFieldType === 'OTP_VERIFICATION';
+          const hasVerifiedInputConfig = currentFieldType === 'VERIFIED_INPUT';
+          const hasApiVerificationConfig = currentFieldType === 'API_VERIFICATION';
           const hasFileConfig = currentFieldType === 'FILE_UPLOAD';
           const hasDateConfig = currentFieldType === 'DATE';
           const hasTextInput = ['TEXT', 'NUMBER', 'TEXTAREA'].includes(currentFieldType);
+          const verificationMode = watch(`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.mode`);
               const currentField = watch(`${fieldArrayName}.${fieldIndex}`);
 
               // Guard against missing field
@@ -885,6 +892,954 @@ export default function FieldBuilder({
                               inputProps={{ min: 4, max: 8 }}
                             />
                           )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.resendIntervalSeconds`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Resend Interval (seconds)"
+                              type="number"
+                              size="small"
+                              inputProps={{ min: 10 }}
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      {/* Consent UI Configuration (Optional) */}
+                      <Grid item xs={12}>
+                        <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
+                          Consent UI (Optional)
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.consent.title`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Consent Title"
+                              size="small"
+                              placeholder="e.g., Mobile Number Verification"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.consent.subTitle`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Consent Subtitle"
+                              size="small"
+                              placeholder="e.g., We will send an OTP to verify your mobile number"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.consent.message`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Consent Message"
+                              multiline
+                              rows={2}
+                              size="small"
+                              placeholder="e.g., By continuing, you consent to receive OTP."
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.consent.positiveButtonText`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Positive Button Text"
+                              size="small"
+                              placeholder="e.g., Agree & Continue"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.consent.negativeButtonText`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Negative Button Text"
+                              size="small"
+                              placeholder="e.g., Cancel"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      {/* API Configuration for OTP */}
+                      <Grid item xs={12}>
+                        <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
+                          API Configuration
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.api.sendOtp.endpoint`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Send OTP Endpoint"
+                              size="small"
+                              placeholder="/api/otp/send"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={3}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.api.sendOtp.method`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Method"
+                              select
+                              size="small"
+                            >
+                              {HTTP_METHODS.map((method) => (
+                                <MenuItem key={method.value} value={method.value}>
+                                  {method.label}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.api.verifyOtp.endpoint`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Verify OTP Endpoint"
+                              size="small"
+                              placeholder="/api/otp/verify"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={3}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.otpConfig.api.verifyOtp.method`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Method"
+                              select
+                              size="small"
+                            >
+                              {HTTP_METHODS.map((method) => (
+                                <MenuItem key={method.value} value={method.value}>
+                                  {method.label}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          )}
+                        />
+                      </Grid>
+                    </>
+                  )}
+
+                  {/* API Verification Configuration */}
+                  {hasApiVerificationConfig && (
+                    <>
+                      <Grid item xs={12}>
+                        <Typography
+                          variant="caption"
+                          fontWeight={600}
+                          color="primary"
+                        >
+                          API Verification Configuration
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.apiVerificationConfig.endpoint`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Verification API Endpoint"
+                              required
+                              size="small"
+                              placeholder="/api/verification/pan"
+                              helperText="API endpoint for verification"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={3}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.apiVerificationConfig.method`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="HTTP Method"
+                              select
+                              required
+                              size="small"
+                            >
+                              {HTTP_METHODS.map((method) => (
+                                <MenuItem key={method.value} value={method.value}>
+                                  {method.label}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={3}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.apiVerificationConfig.linkedFieldId`}
+                          control={control}
+                          render={({ field }: { field: any }) => {
+                            const availableFields = getAllFieldIds();
+                            return (
+                              <TextField
+                                {...field}
+                                fullWidth
+                                label="Linked Field ID (Optional)"
+                                select
+                                size="small"
+                                helperText="Field to verify"
+                              >
+                                <MenuItem value="">
+                                  <em>None</em>
+                                </MenuItem>
+                                {availableFields.map((f: { value: string; label: string }) => (
+                                  <MenuItem key={f.value} value={f.value}>
+                                    {f.label}
+                                  </MenuItem>
+                                ))}
+                              </TextField>
+                            );
+                          }}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
+                          Request Mapping (Optional)
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.apiVerificationConfig.requestMapping`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Request Mapping (JSON)"
+                              multiline
+                              rows={3}
+                              size="small"
+                              placeholder='{"value": "{{value}}"}'
+                              helperText="JSON object mapping field values to API request"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
+                          Success Condition (Optional)
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.apiVerificationConfig.successCondition.field`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Response Field"
+                              size="small"
+                              placeholder="e.g., status"
+                              helperText="Field name in API response"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.apiVerificationConfig.successCondition.equals`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Expected Value"
+                              size="small"
+                              placeholder="e.g., VERIFIED"
+                              helperText="Value that indicates success"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
+                          Verification Messages
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.apiVerificationConfig.messages.success`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Success Message"
+                              size="small"
+                              placeholder="e.g., Verification successful"
+                              helperText="Message shown on successful verification"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.apiVerificationConfig.messages.failure`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Failure Message"
+                              size="small"
+                              placeholder="e.g., Verification failed"
+                              helperText="Message shown on failed verification"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <FormControlLabel
+                          control={
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.apiVerificationConfig.showDialog`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <Checkbox {...field} checked={field.value || false} />
+                              )}
+                            />
+                          }
+                          label="Show Success/Failure Messages in Dialog"
+                        />
+                      </Grid>
+                    </>
+                  )}
+
+                  {/* Verified Input Configuration */}
+                  {hasVerifiedInputConfig && (
+                    <>
+                      <Grid item xs={12}>
+                        <Typography
+                          variant="caption"
+                          fontWeight={600}
+                          color="primary"
+                        >
+                          Input Configuration
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.dataType`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Data Type"
+                              select
+                              required
+                              size="small"
+                            >
+                              {INPUT_DATA_TYPES.map((type) => (
+                                <MenuItem key={type.value} value={type.value}>
+                                  {type.label}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.keyboard`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Keyboard Type"
+                              select
+                              size="small"
+                            >
+                              {INPUT_KEYBOARD_TYPES.map((type) => (
+                                <MenuItem key={type.value} value={type.value}>
+                                  {type.label}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          )}
+                        />
+                      </Grid>
+
+                      {watch(`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.dataType`) === 'TEXT' && (
+                        <Grid item xs={12} md={4}>
+                          <Controller
+                            name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.maxLength`}
+                            control={control}
+                            render={({ field }: { field: any }) => (
+                              <TextField
+                                {...field}
+                                fullWidth
+                                label="Max Length"
+                                type="number"
+                                size="small"
+                              />
+                            )}
+                          />
+                        </Grid>
+                      )}
+
+                      {watch(`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.dataType`) === 'NUMBER' && (
+                        <>
+                          <Grid item xs={12} md={4}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.min`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Min Value"
+                                  type="number"
+                                  size="small"
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.max`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Max Value"
+                                  type="number"
+                                  size="small"
+                                />
+                              )}
+                            />
+                          </Grid>
+                        </>
+                      )}
+
+                      <Grid item xs={12}>
+                        <Typography
+                          variant="caption"
+                          fontWeight={600}
+                          color="primary"
+                          sx={{ mt: 2 }}
+                        >
+                          Verification Configuration
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.mode`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Verification Mode"
+                              select
+                              required
+                              size="small"
+                            >
+                              {VERIFICATION_MODES.map((mode) => (
+                                <MenuItem key={mode.value} value={mode.value}>
+                                  {mode.label}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          )}
+                        />
+                      </Grid>
+
+                      {/* OTP Verification Mode */}
+                      {verificationMode === 'OTP' && (
+                        <>
+                          <Grid item xs={12} md={4}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.otp.channel`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="OTP Channel"
+                                  select
+                                  required
+                                  size="small"
+                                >
+                                  {OTP_CHANNELS.map((channel) => (
+                                    <MenuItem key={channel.value} value={channel.value}>
+                                      {channel.label}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12} md={4}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.otp.otpLength`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="OTP Length"
+                                  type="number"
+                                  size="small"
+                                  inputProps={{ min: 4, max: 8 }}
+                                />
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12} md={4}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.otp.resendIntervalSeconds`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Resend Interval (seconds)"
+                                  type="number"
+                                  size="small"
+                                  inputProps={{ min: 10 }}
+                                />
+                              )}
+                            />
+                          </Grid>
+
+                          {/* Consent UI for OTP */}
+                          <Grid item xs={12}>
+                            <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
+                              Consent UI (Optional)
+                            </Typography>
+                            <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                          </Grid>
+
+                          <Grid item xs={12} md={6}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.otp.consent.title`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Consent Title"
+                                  size="small"
+                                  placeholder="e.g., Mobile Number Verification"
+                                />
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12} md={6}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.otp.consent.subTitle`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Consent Subtitle"
+                                  size="small"
+                                  placeholder="e.g., We will send an OTP to verify your mobile number"
+                                />
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.otp.consent.message`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Consent Message"
+                                  multiline
+                                  rows={2}
+                                  size="small"
+                                  placeholder="e.g., By continuing, you consent to receive OTP."
+                                />
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12} md={6}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.otp.consent.positiveButtonText`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Positive Button Text"
+                                  size="small"
+                                  placeholder="e.g., Agree & Continue"
+                                />
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12} md={6}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.otp.consent.negativeButtonText`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Negative Button Text"
+                                  size="small"
+                                  placeholder="e.g., Cancel"
+                                />
+                              )}
+                            />
+                          </Grid>
+
+                          {/* OTP API Configuration */}
+                          <Grid item xs={12}>
+                            <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
+                              OTP API Configuration
+                            </Typography>
+                            <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                          </Grid>
+
+                          <Grid item xs={12} md={6}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.otp.api.sendOtp.endpoint`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Send OTP Endpoint"
+                                  size="small"
+                                  placeholder="/api/otp/send"
+                                />
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12} md={3}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.otp.api.sendOtp.method`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Method"
+                                  select
+                                  size="small"
+                                >
+                                  {HTTP_METHODS.map((method) => (
+                                    <MenuItem key={method.value} value={method.value}>
+                                      {method.label}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12} md={6}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.otp.api.verifyOtp.endpoint`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Verify OTP Endpoint"
+                                  size="small"
+                                  placeholder="/api/otp/verify"
+                                />
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12} md={3}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.otp.api.verifyOtp.method`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Method"
+                                  select
+                                  size="small"
+                                >
+                                  {HTTP_METHODS.map((method) => (
+                                    <MenuItem key={method.value} value={method.value}>
+                                      {method.label}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              )}
+                            />
+                          </Grid>
+                        </>
+                      )}
+
+                      {/* API Verification Mode */}
+                      {verificationMode === 'API' && (
+                        <>
+                          <Grid item xs={12} md={6}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.api.endpoint`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Verification API Endpoint"
+                                  size="small"
+                                  placeholder="/api/verification/pan"
+                                />
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12} md={3}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.api.method`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Method"
+                                  select
+                                  size="small"
+                                >
+                                  {HTTP_METHODS.map((method) => (
+                                    <MenuItem key={method.value} value={method.value}>
+                                      {method.label}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12}>
+                            <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
+                              Request Mapping (Optional)
+                            </Typography>
+                            <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                          </Grid>
+
+                          <Grid item xs={12}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.api.requestMapping`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Request Mapping (JSON)"
+                                  multiline
+                                  rows={3}
+                                  size="small"
+                                  placeholder='{"value": "{{value}}"}'
+                                  helperText="JSON object mapping field values to API request"
+                                />
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12}>
+                            <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
+                              Success Condition (Optional)
+                            </Typography>
+                            <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                          </Grid>
+
+                          <Grid item xs={12} md={4}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.api.successCondition.field`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Response Field"
+                                  size="small"
+                                  placeholder="e.g., status"
+                                />
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12} md={4}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.api.successCondition.equals`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Expected Value"
+                                  size="small"
+                                  placeholder="e.g., VERIFIED"
+                                />
+                              )}
+                            />
+                          </Grid>
+                        </>
+                      )}
+
+                      {/* Verification Messages */}
+                      <Grid item xs={12}>
+                        <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
+                          Verification Messages (Optional)
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.messages.success`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Success Message"
+                              size="small"
+                              placeholder="e.g., Verification successful"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.messages.failure`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Failure Message"
+                              size="small"
+                              placeholder="e.g., Verification failed"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <FormControlLabel
+                          control={
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.showDialog`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <Checkbox {...field} checked={field.value || false} />
+                              )}
+                            />
+                          }
+                          label="Show Success/Failure Messages in Dialog"
                         />
                       </Grid>
                     </>

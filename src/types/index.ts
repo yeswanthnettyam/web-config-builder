@@ -72,6 +72,8 @@ export type FieldType =
   | 'TEXTAREA' 
   | 'FILE_UPLOAD' 
   | 'OTP_VERIFICATION'
+  | 'API_VERIFICATION'
+  | 'VERIFIED_INPUT'
   | 'CHECKBOX'
   | 'RADIO';
 
@@ -92,17 +94,91 @@ export interface Condition {
   value: string | number | string[];
 }
 
+export interface ConsentConfig {
+  title: string;
+  subTitle: string;
+  message?: string;
+  positiveButtonText?: string;
+  negativeButtonText?: string;
+}
+
 export interface OTPConfig {
   channel: 'MOBILE' | 'EMAIL' | 'BOTH';
   linkedField: string;
   otpLength: number;
   resendIntervalSeconds: number;
-  consent: {
-    title: string;
-    subTitle: string;
+  consent?: ConsentConfig;
+  sendOtpApi?: string;
+  verifyOtpApi?: string;
+  api?: {
+    sendOtp: {
+      endpoint: string;
+      method: 'GET' | 'POST' | 'PUT';
+    };
+    verifyOtp: {
+      endpoint: string;
+      method: 'GET' | 'POST' | 'PUT';
+    };
   };
-  sendOtpApi: string;
-  verifyOtpApi: string;
+}
+
+export interface ApiVerificationConfig {
+  endpoint: string;
+  method: 'GET' | 'POST' | 'PUT';
+  linkedFieldId?: string;
+  requestMapping?: Record<string, string>;
+  successCondition?: {
+    field: string;
+    equals: string | number | boolean;
+  };
+  messages?: {
+    success?: string;
+    failure?: string;
+  };
+  showDialog?: boolean;
+}
+
+export interface VerifiedInputConfig {
+  input: {
+    dataType: 'TEXT' | 'NUMBER';
+    keyboard?: 'NUMBER' | 'TEXT';
+    maxLength?: number;
+    min?: number;
+    max?: number;
+  };
+  verification: {
+    mode: 'OTP' | 'API';
+    otp?: {
+      channel: 'MOBILE' | 'EMAIL' | 'BOTH';
+      otpLength: number;
+      resendIntervalSeconds: number;
+      consent?: ConsentConfig;
+      api?: {
+        sendOtp: {
+          endpoint: string;
+          method: 'GET' | 'POST' | 'PUT';
+        };
+        verifyOtp: {
+          endpoint: string;
+          method: 'GET' | 'POST' | 'PUT';
+        };
+      };
+    };
+    api?: {
+      endpoint: string;
+      method: 'GET' | 'POST' | 'PUT';
+      requestMapping?: Record<string, string>;
+      successCondition?: {
+        field: string;
+        equals: string | number | boolean;
+      };
+    };
+    messages?: {
+      success?: string;
+      failure?: string;
+    };
+    showDialog?: boolean;
+  };
 }
 
 export interface Field {
@@ -121,6 +197,8 @@ export interface Field {
   maxFileSizeMB?: number;
   maxFiles?: number;
   otpConfig?: OTPConfig;
+  apiVerificationConfig?: ApiVerificationConfig;
+  verifiedInputConfig?: VerifiedInputConfig;
   visibleWhen?: Condition;
   enabledWhen?: Condition;
   requiredWhen?: Condition;
@@ -136,6 +214,8 @@ export interface SubSection {
   minInstances?: number;
   maxInstances?: number;
   instanceLabel?: string;
+  collapsible?: boolean;
+  defaultExpanded?: boolean;
   fields: Field[];
   order?: number;
   parentSectionId?: string;

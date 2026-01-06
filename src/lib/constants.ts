@@ -41,7 +41,9 @@ export const FIELD_TYPES = [
   { value: 'DATE', label: 'Date Picker' },
   { value: 'TEXTAREA', label: 'Text Area' },
   { value: 'FILE_UPLOAD', label: 'File Upload' },
+  { value: 'VERIFIED_INPUT', label: 'Verified Input' },
   { value: 'OTP_VERIFICATION', label: 'OTP Verification' },
+  { value: 'API_VERIFICATION', label: 'API Verification' },
   { value: 'CHECKBOX', label: 'Checkbox' },
   { value: 'RADIO', label: 'Radio Button' },
 ] as const;
@@ -123,6 +125,24 @@ export const OTP_CHANNELS = [
   { value: 'MOBILE', label: 'Mobile' },
   { value: 'EMAIL', label: 'Email' },
   { value: 'BOTH', label: 'Both' },
+] as const;
+
+// Verification Modes
+export const VERIFICATION_MODES = [
+  { value: 'OTP', label: 'OTP Verification' },
+  { value: 'API', label: 'API Verification' },
+] as const;
+
+// Input Data Types
+export const INPUT_DATA_TYPES = [
+  { value: 'TEXT', label: 'Text' },
+  { value: 'NUMBER', label: 'Number' },
+] as const;
+
+// Input Keyboard Types
+export const INPUT_KEYBOARD_TYPES = [
+  { value: 'TEXT', label: 'Text' },
+  { value: 'NUMBER', label: 'Number' },
 ] as const;
 
 // Execution Targets

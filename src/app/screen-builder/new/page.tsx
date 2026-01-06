@@ -106,6 +106,8 @@ const screenConfigSchema = z.object({
           minInstances: z.number().optional(),
           maxInstances: z.number().optional(),
           instanceLabel: z.string().optional(),
+          collapsible: z.boolean().optional(),
+          defaultExpanded: z.boolean().optional(),
           order: z.number().optional(),
           parentSectionId: z.string().optional(),
           fields: z.array(z.any()).optional(),
@@ -544,6 +546,58 @@ function NewScreenConfigPageContent() {
               if (!field.otpConfig?.linkedField) {
                 errors.push(`Section "${section.title}", Field "${field.label || field.id}": Linked field is required for OTP`);
                 if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.otpConfig.linkedField`;
+              }
+            }
+
+            // Validate API_VERIFICATION configuration
+            if (field.type === 'API_VERIFICATION') {
+              if (!field.apiVerificationConfig?.endpoint) {
+                errors.push(`Section "${section.title}", Field "${field.label || field.id}": API endpoint is required for API Verification`);
+                if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.apiVerificationConfig.endpoint`;
+              }
+              if (!field.apiVerificationConfig?.method) {
+                errors.push(`Section "${section.title}", Field "${field.label || field.id}": HTTP method is required for API Verification`);
+                if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.apiVerificationConfig.method`;
+              }
+            }
+
+            // Validate VERIFIED_INPUT configuration
+            if (field.type === 'VERIFIED_INPUT') {
+              if (!field.verifiedInputConfig?.input?.dataType) {
+                errors.push(`Section "${section.title}", Field "${field.label || field.id}": Input data type is required for Verified Input`);
+                if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.verifiedInputConfig.input.dataType`;
+              }
+              if (!field.verifiedInputConfig?.verification?.mode) {
+                errors.push(`Section "${section.title}", Field "${field.label || field.id}": Verification mode is required for Verified Input`);
+                if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.verifiedInputConfig.verification.mode`;
+              }
+              if (field.verifiedInputConfig?.verification?.mode === 'OTP') {
+                if (!field.verifiedInputConfig?.verification?.otp?.channel) {
+                  errors.push(`Section "${section.title}", Field "${field.label || field.id}": OTP channel is required`);
+                  if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.verifiedInputConfig.verification.otp.channel`;
+                }
+                if (!field.verifiedInputConfig?.verification?.otp?.otpLength) {
+                  errors.push(`Section "${section.title}", Field "${field.label || field.id}": OTP length is required`);
+                  if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.verifiedInputConfig.verification.otp.otpLength`;
+                }
+                if (!field.verifiedInputConfig?.verification?.otp?.api?.sendOtp?.endpoint) {
+                  errors.push(`Section "${section.title}", Field "${field.label || field.id}": Send OTP endpoint is required`);
+                  if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.verifiedInputConfig.verification.otp.api.sendOtp.endpoint`;
+                }
+                if (!field.verifiedInputConfig?.verification?.otp?.api?.verifyOtp?.endpoint) {
+                  errors.push(`Section "${section.title}", Field "${field.label || field.id}": Verify OTP endpoint is required`);
+                  if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.verifiedInputConfig.verification.otp.api.verifyOtp.endpoint`;
+                }
+              }
+              if (field.verifiedInputConfig?.verification?.mode === 'API') {
+                if (!field.verifiedInputConfig?.verification?.api?.endpoint) {
+                  errors.push(`Section "${section.title}", Field "${field.label || field.id}": Verification API endpoint is required`);
+                  if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.verifiedInputConfig.verification.api.endpoint`;
+                }
+                if (!field.verifiedInputConfig?.verification?.api?.method) {
+                  errors.push(`Section "${section.title}", Field "${field.label || field.id}": Verification API method is required`);
+                  if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.verifiedInputConfig.verification.api.method`;
+                }
               }
             }
           });
@@ -1174,7 +1228,7 @@ function NewScreenConfigPageContent() {
                                     />
                                   </Grid>
 
-                                  <Grid item xs={12} md={6}>
+                                  <Grid item xs={12} md={4}>
                                     <FormControlLabel
                                       control={
                                         <Controller
@@ -1186,6 +1240,36 @@ function NewScreenConfigPageContent() {
                                         />
                                       }
                                       label="Repeatable"
+                                    />
+                                  </Grid>
+
+                                  <Grid item xs={12} md={4}>
+                                    <FormControlLabel
+                                      control={
+                                        <Controller
+                                          name={`sections.${sectionIndex}.subSections.${subIndex}.collapsible`}
+                                          control={control}
+                                          render={({ field }) => (
+                                            <Checkbox {...field} checked={field.value || false} />
+                                          )}
+                                        />
+                                      }
+                                      label="Collapsible"
+                                    />
+                                  </Grid>
+
+                                  <Grid item xs={12} md={4}>
+                                    <FormControlLabel
+                                      control={
+                                        <Controller
+                                          name={`sections.${sectionIndex}.subSections.${subIndex}.defaultExpanded`}
+                                          control={control}
+                                          render={({ field }) => (
+                                            <Checkbox {...field} checked={field.value !== false} />
+                                          )}
+                                        />
+                                      }
+                                      label="Default Expanded"
                                     />
                                   </Grid>
 
