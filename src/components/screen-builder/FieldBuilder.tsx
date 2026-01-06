@@ -1890,21 +1890,30 @@ export default function FieldBuilder({
                     <Controller
                       name={`${fieldArrayName}.${fieldIndex}.visibleWhen.operator`}
                       control={control}
-                      render={({ field }: { field: any }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Operator"
-                          select
-                          size="small"
-                        >
-                          {OPERATORS.map((op) => (
-                            <MenuItem key={op.value} value={op.value}>
-                              {op.label}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-                      )}
+                      render={({ field }: { field: any }) => {
+                        const selectedOperator = field.value;
+                        const isExistsOperator = selectedOperator === 'EXISTS' || selectedOperator === 'NOT_EXISTS';
+                        return (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Operator"
+                            select
+                            size="small"
+                            helperText={
+                              isExistsOperator
+                                ? 'EXISTS = any value selected (no value needed)'
+                                : 'Select comparison operator'
+                            }
+                          >
+                            {OPERATORS.map((op) => (
+                              <MenuItem key={op.value} value={op.value}>
+                                {op.label}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        );
+                      }}
                     />
                   </Grid>
 
@@ -1916,11 +1925,34 @@ export default function FieldBuilder({
                         const selectedField = watch(
                           `${fieldArrayName}.${fieldIndex}.visibleWhen.field`
                         );
+                        const selectedOperator = watch(
+                          `${fieldArrayName}.${fieldIndex}.visibleWhen.operator`
+                        );
+                        const isExistsOperator = selectedOperator === 'EXISTS' || selectedOperator === 'NOT_EXISTS';
                         const allFields = watch(fieldArrayName) || [];
                         const parentField = allFields.find((f: any) => f.id === selectedField);
                         const isDropdown = parentField?.type === 'DROPDOWN' || parentField?.type === 'RADIO';
                         const hasStaticData = parentField?.dataSource?.type === 'STATIC_JSON';
                         const staticOptions = parentField?.dataSource?.staticData || [];
+
+                        // Clear value when switching to EXISTS/NOT_EXISTS
+                        if (isExistsOperator && field.value) {
+                          setTimeout(() => field.onChange(''), 0);
+                        }
+
+                        if (isExistsOperator) {
+                          return (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Value"
+                              size="small"
+                              disabled
+                              value=""
+                              helperText="Not needed for EXISTS/NOT_EXISTS"
+                            />
+                          );
+                        }
 
                         if (isDropdown && hasStaticData && staticOptions.length > 0) {
                           return (
@@ -1948,6 +1980,293 @@ export default function FieldBuilder({
                             label="Value"
                             size="small"
                             placeholder="expected_value"
+                            helperText="Required for EQUALS, IN, etc."
+                          />
+                        );
+                      }}
+                    />
+                  </Grid>
+
+                  {/* Enabled When */}
+                  <Grid item xs={12}>
+                    <Typography
+                      variant="caption"
+                      fontWeight={600}
+                      color="secondary"
+                      sx={{ mt: 2 }}
+                    >
+                      Enabled When (Optional)
+                    </Typography>
+                    <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                    <Controller
+                      name={`${fieldArrayName}.${fieldIndex}.enabledWhen.field`}
+                      control={control}
+                      render={({ field }: { field: any }) => {
+                        const availableFields = getAllFieldIds();
+                        return (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Enabled When Field"
+                            select
+                            size="small"
+                            helperText="Select a field from this section"
+                          >
+                            <MenuItem value="">
+                              <em>None</em>
+                            </MenuItem>
+                            {availableFields.map((f: { value: string; label: string }) => (
+                              <MenuItem key={f.value} value={f.value}>
+                                {f.label}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        );
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                    <Controller
+                      name={`${fieldArrayName}.${fieldIndex}.enabledWhen.operator`}
+                      control={control}
+                      render={({ field }: { field: any }) => {
+                        const selectedOperator = field.value;
+                        const isExistsOperator = selectedOperator === 'EXISTS' || selectedOperator === 'NOT_EXISTS';
+                        return (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Operator"
+                            select
+                            size="small"
+                            helperText={
+                              isExistsOperator
+                                ? 'EXISTS = any value selected (no value needed)'
+                                : 'Select comparison operator'
+                            }
+                          >
+                            {OPERATORS.map((op) => (
+                              <MenuItem key={op.value} value={op.value}>
+                                {op.label}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        );
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                    <Controller
+                      name={`${fieldArrayName}.${fieldIndex}.enabledWhen.value`}
+                      control={control}
+                      render={({ field }: { field: any }) => {
+                        const selectedField = watch(
+                          `${fieldArrayName}.${fieldIndex}.enabledWhen.field`
+                        );
+                        const selectedOperator = watch(
+                          `${fieldArrayName}.${fieldIndex}.enabledWhen.operator`
+                        );
+                        const isExistsOperator = selectedOperator === 'EXISTS' || selectedOperator === 'NOT_EXISTS';
+                        const allFields = watch(fieldArrayName) || [];
+                        const parentField = allFields.find((f: any) => f.id === selectedField);
+                        const isDropdown = parentField?.type === 'DROPDOWN' || parentField?.type === 'RADIO';
+                        const hasStaticData = parentField?.dataSource?.type === 'STATIC_JSON';
+                        const staticOptions = parentField?.dataSource?.staticData || [];
+
+                        // Clear value when switching to EXISTS/NOT_EXISTS
+                        if (isExistsOperator && field.value) {
+                          setTimeout(() => field.onChange(''), 0);
+                        }
+
+                        if (isExistsOperator) {
+                          return (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Value"
+                              size="small"
+                              disabled
+                              value=""
+                              helperText="Not needed for EXISTS/NOT_EXISTS"
+                            />
+                          );
+                        }
+
+                        if (isDropdown && hasStaticData && staticOptions.length > 0) {
+                          return (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Value"
+                              select
+                              size="small"
+                              helperText="Select from parent field options"
+                            >
+                              {staticOptions.map((opt: any) => (
+                                <MenuItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          );
+                        }
+
+                        return (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Value"
+                            size="small"
+                            placeholder="expected_value"
+                            helperText="Required for EQUALS, IN, etc."
+                          />
+                        );
+                      }}
+                    />
+                  </Grid>
+
+                  {/* Required When */}
+                  <Grid item xs={12}>
+                    <Typography
+                      variant="caption"
+                      fontWeight={600}
+                      color="secondary"
+                      sx={{ mt: 2 }}
+                    >
+                      Required When (Optional)
+                    </Typography>
+                    <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                    <Controller
+                      name={`${fieldArrayName}.${fieldIndex}.requiredWhen.field`}
+                      control={control}
+                      render={({ field }: { field: any }) => {
+                        const availableFields = getAllFieldIds();
+                        return (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Required When Field"
+                            select
+                            size="small"
+                            helperText="Select a field from this section"
+                          >
+                            <MenuItem value="">
+                              <em>None</em>
+                            </MenuItem>
+                            {availableFields.map((f: { value: string; label: string }) => (
+                              <MenuItem key={f.value} value={f.value}>
+                                {f.label}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        );
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                    <Controller
+                      name={`${fieldArrayName}.${fieldIndex}.requiredWhen.operator`}
+                      control={control}
+                      render={({ field }: { field: any }) => {
+                        const selectedOperator = field.value;
+                        const isExistsOperator = selectedOperator === 'EXISTS' || selectedOperator === 'NOT_EXISTS';
+                        return (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Operator"
+                            select
+                            size="small"
+                            helperText={
+                              isExistsOperator
+                                ? 'EXISTS = any value selected (no value needed)'
+                                : 'Select comparison operator'
+                            }
+                          >
+                            {OPERATORS.map((op) => (
+                              <MenuItem key={op.value} value={op.value}>
+                                {op.label}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        );
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                    <Controller
+                      name={`${fieldArrayName}.${fieldIndex}.requiredWhen.value`}
+                      control={control}
+                      render={({ field }: { field: any }) => {
+                        const selectedField = watch(
+                          `${fieldArrayName}.${fieldIndex}.requiredWhen.field`
+                        );
+                        const selectedOperator = watch(
+                          `${fieldArrayName}.${fieldIndex}.requiredWhen.operator`
+                        );
+                        const isExistsOperator = selectedOperator === 'EXISTS' || selectedOperator === 'NOT_EXISTS';
+                        const allFields = watch(fieldArrayName) || [];
+                        const parentField = allFields.find((f: any) => f.id === selectedField);
+                        const isDropdown = parentField?.type === 'DROPDOWN' || parentField?.type === 'RADIO';
+                        const hasStaticData = parentField?.dataSource?.type === 'STATIC_JSON';
+                        const staticOptions = parentField?.dataSource?.staticData || [];
+
+                        // Clear value when switching to EXISTS/NOT_EXISTS
+                        if (isExistsOperator && field.value) {
+                          setTimeout(() => field.onChange(''), 0);
+                        }
+
+                        if (isExistsOperator) {
+                          return (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Value"
+                              size="small"
+                              disabled
+                              value=""
+                              helperText="Not needed for EXISTS/NOT_EXISTS"
+                            />
+                          );
+                        }
+
+                        if (isDropdown && hasStaticData && staticOptions.length > 0) {
+                          return (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Value"
+                              select
+                              size="small"
+                              helperText="Select from parent field options"
+                            >
+                              {staticOptions.map((opt: any) => (
+                                <MenuItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          );
+                        }
+
+                        return (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Value"
+                            size="small"
+                            placeholder="expected_value"
+                            helperText="Required for EQUALS, IN, etc."
                           />
                         );
                       }}

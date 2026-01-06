@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Card,
@@ -36,6 +36,13 @@ export default function FormPreview({ formData }: FormPreviewProps) {
   const [apiVerificationStates, setApiVerificationStates] = useState<Record<string, 'idle' | 'verifying' | 'verified' | 'failed'>>({});
   const [dialogOpen, setDialogOpen] = useState<Record<string, boolean>>({});
   const [dialogMessage, setDialogMessage] = useState<Record<string, { type: 'success' | 'error'; message: string }>>({});
+  const previousVisibilityRef = useRef<Record<string, boolean>>({});
+  const formValuesRef = useRef<Record<string, any>>({});
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    formValuesRef.current = formValues;
+  }, [formValues]);
 
   const handleFieldChange = (fieldId: string, value: any) => {
     setFormValues((prev) => ({
@@ -58,13 +65,93 @@ export default function FormPreview({ formData }: FormPreviewProps) {
       case 'IN':
         return Array.isArray(expectedValue) && expectedValue.includes(fieldValue);
       case 'EXISTS':
+        // EXISTS: field has any non-null, non-empty value
+        // For dropdowns, empty string means no selection
         return fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
       case 'NOT_EXISTS':
+        // NOT_EXISTS: field is null, undefined, or empty
         return fieldValue === undefined || fieldValue === null || fieldValue === '';
       default:
         return true;
     }
   };
+
+  // Clear-on-hide: Clear field values when visibleWhen becomes false
+  useEffect(() => {
+    if (!formData?.sections) return;
+
+    const allFields: any[] = [];
+    formData.sections.forEach((section: any) => {
+      if (section.fields) allFields.push(...section.fields);
+      if (section.subSections) {
+        section.subSections.forEach((sub: any) => {
+          if (sub.fields) allFields.push(...sub.fields);
+        });
+      }
+    });
+
+    const fieldsToClear: string[] = [];
+
+    allFields.forEach((field: any) => {
+      if (!field.id || !field.visibleWhen) return;
+
+      const wasVisible = previousVisibilityRef.current[field.id] ?? true;
+      // Use ref to get current formValues to avoid dependency issues
+      const currentFormValues = formValuesRef.current;
+      const fieldValue = currentFormValues[field.visibleWhen.field];
+      const expectedValue = field.visibleWhen.value;
+      let isVisible = true;
+
+      // Re-evaluate condition using current form values
+      if (field.visibleWhen.operator === 'EQUALS') {
+        isVisible = fieldValue === expectedValue;
+      } else if (field.visibleWhen.operator === 'NOT_EQUALS') {
+        isVisible = fieldValue !== expectedValue;
+      } else if (field.visibleWhen.operator === 'IN') {
+        isVisible = Array.isArray(expectedValue) && expectedValue.includes(fieldValue);
+      } else if (field.visibleWhen.operator === 'EXISTS') {
+        isVisible = fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
+      } else if (field.visibleWhen.operator === 'NOT_EXISTS') {
+        isVisible = fieldValue === undefined || fieldValue === null || fieldValue === '';
+      }
+
+      // If field was visible and now hidden, clear its value
+      if (wasVisible && !isVisible) {
+        fieldsToClear.push(field.id);
+      }
+
+      // Update visibility tracking
+      previousVisibilityRef.current[field.id] = isVisible;
+    });
+
+    // Clear values and reset states for hidden fields
+    if (fieldsToClear.length > 0) {
+      setFormValues((prev) => {
+        const newValues = { ...prev };
+        fieldsToClear.forEach((fieldId) => {
+          delete newValues[fieldId];
+        });
+        return newValues;
+      });
+
+      // Reset verification states
+      setVerificationStates((prev) => {
+        const newStates = { ...prev };
+        fieldsToClear.forEach((fieldId) => {
+          delete newStates[fieldId];
+        });
+        return newStates;
+      });
+
+      setApiVerificationStates((prev) => {
+        const newStates = { ...prev };
+        fieldsToClear.forEach((fieldId) => {
+          delete newStates[fieldId];
+        });
+        return newStates;
+      });
+    }
+  }, [formValues, formData]);
 
   const renderField = (field: any) => {
     if (!field || !field.id) return null;
