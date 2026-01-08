@@ -76,7 +76,7 @@ export default function ValidationBuilderPage() {
   });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [validationConfigs, setValidationConfigs] = useState<CachedValidationConfig[]>([]);
-  const [availableFields, setAvailableFields] = useState<string[]>([]);
+  const [availableFields, setAvailableFields] = useState<Array<{ id: string; type: string }>>([]);
   const [editingConfig, setEditingConfig] = useState<any>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -142,25 +142,29 @@ export default function ValidationBuilderPage() {
     if (selectedScreenId) {
       const screenConfig = getScreenConfigByScreenId(selectedScreenId);
       if (screenConfig) {
-        const fieldIds: string[] = [];
+        const fields: Array<{ id: string; type: string }> = [];
         
-        // Extract all field IDs from the screen config
+        // Extract all field IDs and types from the screen config
         screenConfig.config.ui?.sections?.forEach((section: any) => {
           if (section.fields) {
             section.fields.forEach((field: any) => {
-              if (field.id) fieldIds.push(field.id);
+              if (field.id && field.type) {
+                fields.push({ id: field.id, type: field.type });
+              }
             });
           }
           if (section.subSections) {
             section.subSections.forEach((subSection: any) => {
               subSection.fields?.forEach((field: any) => {
-                if (field.id) fieldIds.push(field.id);
+                if (field.id && field.type) {
+                  fields.push({ id: field.id, type: field.type });
+                }
               });
             });
           }
         });
         
-        setAvailableFields(fieldIds);
+        setAvailableFields(fields);
       } else {
         setAvailableFields([]);
       }
@@ -475,30 +479,45 @@ export default function ValidationBuilderPage() {
                               <Controller
                                 name={`rules.${index}.fieldId`}
                                 control={control}
-                                render={({ field }) => (
-                                  <TextField
-                                    {...field}
-                                    fullWidth
-                                    label="Field ID"
-                                    select
-                                    size="small"
-                                    required
-                                    disabled={!selectedScreenId || availableFields.length === 0}
-                                    helperText={
-                                      !selectedScreenId 
-                                        ? "Select a screen first" 
-                                        : availableFields.length === 0
-                                        ? "No fields found in selected screen"
-                                        : "Select field from screen configuration"
-                                    }
-                                  >
-                                    {availableFields.map((fieldId) => (
-                                      <MenuItem key={fieldId} value={fieldId}>
-                                        {fieldId}
-                                      </MenuItem>
-                                    ))}
-                                  </TextField>
-                                )}
+                                render={({ field }) => {
+                                  const validationType = watch(`rules.${index}.type`);
+                                  
+                                  // Filter fields based on validation type
+                                  let filteredFields = availableFields;
+                                  if (validationType === 'REQUIRES_VERIFICATION') {
+                                    // Show VERIFIED_INPUT and API_VERIFICATION fields for REQUIRES_VERIFICATION
+                                    filteredFields = availableFields.filter(f => f.type === 'VERIFIED_INPUT' || f.type === 'API_VERIFICATION');
+                                  }
+                                  
+                                  return (
+                                    <TextField
+                                      {...field}
+                                      fullWidth
+                                      label="Field ID"
+                                      select
+                                      size="small"
+                                      required
+                                      disabled={!selectedScreenId || filteredFields.length === 0}
+                                      helperText={
+                                        !selectedScreenId 
+                                          ? "Select a screen first" 
+                                          : validationType === 'REQUIRES_VERIFICATION' && filteredFields.length === 0
+                                          ? "No VERIFIED_INPUT or API_VERIFICATION fields found in selected screen"
+                                          : filteredFields.length === 0
+                                          ? "No fields found in selected screen"
+                                          : validationType === 'REQUIRES_VERIFICATION'
+                                          ? "Select VERIFIED_INPUT or API_VERIFICATION field from screen configuration"
+                                          : "Select field from screen configuration"
+                                      }
+                                    >
+                                      {filteredFields.map((fieldObj) => (
+                                        <MenuItem key={fieldObj.id} value={fieldObj.id}>
+                                          {fieldObj.id}
+                                        </MenuItem>
+                                      ))}
+                                    </TextField>
+                                  );
+                                }}
                               />
                             </Grid>
 
@@ -684,6 +703,12 @@ export default function ValidationBuilderPage() {
                                     </Grid>
                                   </>
                                 );
+                              }
+                              
+                              // For REQUIRES_VERIFICATION - no additional fields needed
+                              // Only Field ID, Error Message, and Execution Target are shown
+                              if (validationType === 'REQUIRES_VERIFICATION') {
+                                return null;
                               }
                               
                               // For EMAIL, PHONE - no additional fields needed

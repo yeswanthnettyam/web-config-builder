@@ -192,6 +192,7 @@ export interface Field {
   min?: number;
   max?: number;
   maxLength?: number;
+  value?: any; // Optional default/initial value
   dataSource?: DataSource;
   allowedFileTypes?: string[];
   maxFileSizeMB?: number;
@@ -273,7 +274,7 @@ export type ExecutionTarget = 'FRONTEND' | 'BACKEND' | 'BOTH';
 export interface ValidationRule {
   id: string;
   fieldId: string;
-  type: 'MIN' | 'MAX' | 'REGEX' | 'CUSTOM' | 'DEPENDENT';
+  type: 'MIN' | 'MAX' | 'REGEX' | 'CUSTOM' | 'DEPENDENT' | 'REQUIRES_VERIFICATION';
   min?: number;
   max?: number;
   pattern?: string;

@@ -87,6 +87,7 @@ export const VALIDATION_TYPES = [
   { value: 'EMAIL', label: 'Email Format' },
   { value: 'PHONE', label: 'Phone Number' },
   { value: 'CUSTOM', label: 'Custom Code' },
+  { value: 'REQUIRES_VERIFICATION', label: 'Requires Verification' },
 ] as const;
 
 // Mapping Types

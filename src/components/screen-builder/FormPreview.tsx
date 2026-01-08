@@ -44,11 +44,24 @@ export default function FormPreview({ formData }: FormPreviewProps) {
     formValuesRef.current = formValues;
   }, [formValues]);
 
-  const handleFieldChange = (fieldId: string, value: any) => {
-    setFormValues((prev) => ({
-      ...prev,
-      [fieldId]: value,
-    }));
+  const handleFieldChange = (fieldId: string, value: any, fieldType?: string) => {
+    setFormValues((prev) => {
+      const prevValue = prev[fieldId];
+      const newValues = {
+        ...prev,
+        [fieldId]: value,
+      };
+      
+      // For VERIFIED_INPUT: Reset verification state when value changes
+      if (fieldType === 'VERIFIED_INPUT' && prevValue !== value) {
+        setVerificationStates((prevStates) => ({
+          ...prevStates,
+          [fieldId]: 'idle',
+        }));
+      }
+      
+      return newValues;
+    });
   };
 
   const checkCondition = (condition: any) => {
@@ -75,6 +88,38 @@ export default function FormPreview({ formData }: FormPreviewProps) {
         return true;
     }
   };
+
+  // Initialize form values from field.value properties
+  useEffect(() => {
+    if (!formData?.sections) return;
+
+    const initialValues: Record<string, any> = {};
+    const allFields: any[] = [];
+    
+    formData.sections.forEach((section: any) => {
+      if (section.fields) allFields.push(...section.fields);
+      if (section.subSections) {
+        section.subSections.forEach((sub: any) => {
+          if (sub.fields) allFields.push(...sub.fields);
+        });
+      }
+    });
+
+    // Initialize values from field.value if present
+    allFields.forEach((field: any) => {
+      if (field.id && field.value !== undefined && field.value !== null) {
+        initialValues[field.id] = field.value;
+      }
+    });
+
+    // Only update if there are initial values to set
+    if (Object.keys(initialValues).length > 0) {
+      setFormValues((prev) => ({
+        ...prev,
+        ...initialValues,
+      }));
+    }
+  }, [formData]);
 
   // Clear-on-hide: Clear field values when visibleWhen becomes false
   useEffect(() => {
@@ -176,8 +221,8 @@ export default function FormPreview({ formData }: FormPreviewProps) {
             placeholder={field.placeholder}
             required={isRequired}
             disabled={isDisabled}
-            value={formValues[field.id] || ''}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            value={formValues[field.id] ?? field.value ?? ''}
+            onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
             inputProps={{
               min: field.min,
               max: field.max,
@@ -198,8 +243,8 @@ export default function FormPreview({ formData }: FormPreviewProps) {
             placeholder={field.placeholder}
             required={isRequired}
             disabled={isDisabled}
-            value={formValues[field.id] || ''}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            value={formValues[field.id] ?? field.value ?? ''}
+            onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
           />
         );
 
@@ -213,8 +258,8 @@ export default function FormPreview({ formData }: FormPreviewProps) {
             select
             required={isRequired}
             disabled={isDisabled}
-            value={formValues[field.id] || ''}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            value={formValues[field.id] ?? field.value ?? ''}
+            onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
             helperText={
               field.dataSource?.type === 'MASTER_DATA'
                 ? `Master Data: ${field.dataSource?.masterDataKey}`
@@ -240,8 +285,8 @@ export default function FormPreview({ formData }: FormPreviewProps) {
             type="date"
             required={isRequired}
             disabled={isDisabled}
-            value={formValues[field.id] || ''}
-            onChange={(e) => handleFieldChange(field.id, e.target.value)}
+            value={formValues[field.id] ?? field.value ?? ''}
+            onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
             InputLabelProps={{ shrink: true }}
           />
         );
@@ -252,8 +297,8 @@ export default function FormPreview({ formData }: FormPreviewProps) {
             key={field.id}
             control={
               <Checkbox
-                checked={formValues[field.id] || false}
-                onChange={(e) => handleFieldChange(field.id, e.target.checked)}
+                checked={formValues[field.id] ?? field.value ?? false}
+                onChange={(e) => handleFieldChange(field.id, e.target.checked, field.type)}
                 disabled={isDisabled}
               />
             }
@@ -273,8 +318,8 @@ export default function FormPreview({ formData }: FormPreviewProps) {
                 key={option.value}
                 control={
                   <Checkbox
-                    checked={formValues[field.id] === option.value}
-                    onChange={() => handleFieldChange(field.id, option.value)}
+                    checked={(formValues[field.id] ?? field.value) === option.value}
+                    onChange={() => handleFieldChange(field.id, option.value, field.type)}
                     disabled={isDisabled}
                   />
                 }
@@ -316,8 +361,8 @@ export default function FormPreview({ formData }: FormPreviewProps) {
               placeholder="Enter OTP"
               required={isRequired}
               disabled={isDisabled}
-              value={formValues[field.id] || ''}
-              onChange={(e) => handleFieldChange(field.id, e.target.value)}
+              value={formValues[field.id] ?? field.value ?? ''}
+              onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
               inputProps={{ maxLength: field.otpConfig?.otpLength || 6 }}
             />
             <Box sx={{ display: 'flex', gap: 1, marginTop: 1 }}>
@@ -345,8 +390,8 @@ export default function FormPreview({ formData }: FormPreviewProps) {
                 placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
                 required={isRequired}
                 disabled={isDisabled}
-                value={formValues[field.id] || ''}
-                onChange={(e) => handleFieldChange(field.id, e.target.value)}
+                value={formValues[field.id] ?? field.value ?? ''}
+                onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
                 type={verifiedInputConfig?.input?.dataType === 'NUMBER' ? 'number' : 'text'}
                 inputProps={{
                   maxLength: verifiedInputConfig?.input?.maxLength,
@@ -459,8 +504,8 @@ export default function FormPreview({ formData }: FormPreviewProps) {
               placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
               required={isRequired}
               disabled={isDisabled}
-              value={formValues[field.id] || ''}
-              onChange={(e) => handleFieldChange(field.id, e.target.value)}
+              value={formValues[field.id] ?? field.value ?? ''}
+              onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
             />
             <Button 
               variant="outlined" 

@@ -482,6 +482,37 @@ export default function FieldBuilder({
                     </Box>
                   </Grid>
 
+                  {/* Default Value - for all input-capable fields */}
+                  {['TEXT', 'NUMBER', 'DATE', 'DROPDOWN', 'TEXTAREA', 'VERIFIED_INPUT', 'CHECKBOX', 'RADIO'].includes(currentFieldType) && (
+                    <Grid item xs={12} md={6}>
+                      <Controller
+                        name={`${fieldArrayName}.${fieldIndex}.value`}
+                        control={control}
+                        render={({ field }: { field: any }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Default Value (Optional)"
+                            size="small"
+                            placeholder="Pre-fill field with this value"
+                            helperText="Optional: Field will be pre-filled with this value on screen load"
+                            value={field.value !== undefined && field.value !== null ? String(field.value) : ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              // For NUMBER type, try to parse as number if possible
+                              if (currentFieldType === 'NUMBER' && val !== '') {
+                                const numVal = Number(val);
+                                field.onChange(isNaN(numVal) ? val : numVal);
+                              } else {
+                                field.onChange(val === '' ? undefined : val);
+                              }
+                            }}
+                          />
+                        )}
+                      />
+                    </Grid>
+                  )}
+
                   {/* Text Input Specific */}
                   {hasTextInput && (
                     <>
@@ -676,6 +707,7 @@ export default function FieldBuilder({
                                 {...field}
                                 fullWidth
                                 label="API Endpoint"
+                                required
                                 size="small"
                                 placeholder="/api/data/options"
                               />
@@ -888,6 +920,7 @@ export default function FieldBuilder({
                               fullWidth
                               label="OTP Length"
                               type="number"
+                              required
                               size="small"
                               inputProps={{ min: 4, max: 8 }}
                             />
@@ -1019,6 +1052,7 @@ export default function FieldBuilder({
                               {...field}
                               fullWidth
                               label="Send OTP Endpoint"
+                              required
                               size="small"
                               placeholder="/api/otp/send"
                             />
@@ -1057,6 +1091,7 @@ export default function FieldBuilder({
                               {...field}
                               fullWidth
                               label="Verify OTP Endpoint"
+                              required
                               size="small"
                               placeholder="/api/otp/verify"
                             />
@@ -1480,6 +1515,7 @@ export default function FieldBuilder({
                                   fullWidth
                                   label="OTP Length"
                                   type="number"
+                                  required
                                   size="small"
                                   inputProps={{ min: 4, max: 8 }}
                                 />
@@ -1611,6 +1647,7 @@ export default function FieldBuilder({
                                   {...field}
                                   fullWidth
                                   label="Send OTP Endpoint"
+                                  required
                                   size="small"
                                   placeholder="/api/otp/send"
                                 />
@@ -1649,6 +1686,7 @@ export default function FieldBuilder({
                                   {...field}
                                   fullWidth
                                   label="Verify OTP Endpoint"
+                                  required
                                   size="small"
                                   placeholder="/api/otp/verify"
                                 />
@@ -1692,6 +1730,7 @@ export default function FieldBuilder({
                                   {...field}
                                   fullWidth
                                   label="Verification API Endpoint"
+                                  required
                                   size="small"
                                   placeholder="/api/verification/pan"
                                 />
