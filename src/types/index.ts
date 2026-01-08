@@ -181,6 +181,17 @@ export interface VerifiedInputConfig {
   };
 }
 
+export interface DateConfig {
+  validationType: 'ANY' | 'FUTURE' | 'PAST' | 'AGE_RANGE' | 'DATE_RANGE' | 'OFFSET';
+  minAge?: number | null;
+  maxAge?: number | null;
+  minDate?: string | null; // YYYY-MM-DD format
+  maxDate?: string | null; // YYYY-MM-DD format
+  offset?: number | null;
+  unit?: 'DAY' | 'MONTH' | 'YEAR' | null;
+  dateFormat?: string; // Default: "YYYY-MM-DD"
+}
+
 export interface Field {
   id: string;
   type: FieldType;
@@ -200,6 +211,7 @@ export interface Field {
   otpConfig?: OTPConfig;
   apiVerificationConfig?: ApiVerificationConfig;
   verifiedInputConfig?: VerifiedInputConfig;
+  dateConfig?: DateConfig;
   visibleWhen?: Condition;
   enabledWhen?: Condition;
   requiredWhen?: Condition;

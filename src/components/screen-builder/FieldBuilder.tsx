@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -24,7 +24,7 @@ import {
   ExpandMore,
   DragIndicator,
 } from '@mui/icons-material';
-import { Control, Controller, useFieldArray, UseFormWatch, UseFormTrigger } from 'react-hook-form';
+import { Control, Controller, useFieldArray, UseFormWatch, UseFormTrigger, useFormContext } from 'react-hook-form';
 import {
   DndContext,
   closestCenter,
@@ -162,10 +162,68 @@ export default function FieldBuilder({
     name: fieldArrayName,
   });
 
+  const { setValue } = useFormContext();
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   
   // Track _keys for fields that don't have them yet (for existing fields)
   const fieldKeysRef = useRef<Map<number, string>>(new Map());
+
+  // Track previous validation types to detect changes
+  const prevValidationTypesRef = useRef<Record<string, string>>({});
+
+  // Clear irrelevant dateConfig values when validationType changes
+  useEffect(() => {
+    fieldFields.forEach((_, fieldIndex: number) => {
+      const fieldPath = `${fieldArrayName}.${fieldIndex}`;
+      const fieldType = watch(`${fieldPath}.type`);
+      const validationType = watch(`${fieldPath}.dateConfig.validationType`);
+      
+      if (fieldType === 'DATE' && validationType) {
+        const fieldKey = `${fieldPath}`;
+        const prevValidationType = prevValidationTypesRef.current[fieldKey];
+        
+        // Only clear if validationType actually changed
+        if (prevValidationType && prevValidationType !== validationType) {
+          // Clear irrelevant values based on new validationType
+          if (validationType === 'ANY' || validationType === 'FUTURE' || validationType === 'PAST') {
+            // Clear AGE_RANGE, DATE_RANGE, and OFFSET specific fields
+            setValue(`${fieldPath}.dateConfig.minAge`, null);
+            setValue(`${fieldPath}.dateConfig.maxAge`, null);
+            setValue(`${fieldPath}.dateConfig.minDate`, null);
+            setValue(`${fieldPath}.dateConfig.maxDate`, null);
+            setValue(`${fieldPath}.dateConfig.offset`, null);
+            setValue(`${fieldPath}.dateConfig.unit`, null);
+          } else if (validationType === 'AGE_RANGE') {
+            // Clear DATE_RANGE and OFFSET fields
+            setValue(`${fieldPath}.dateConfig.minDate`, null);
+            setValue(`${fieldPath}.dateConfig.maxDate`, null);
+            setValue(`${fieldPath}.dateConfig.offset`, null);
+            setValue(`${fieldPath}.dateConfig.unit`, null);
+          } else if (validationType === 'DATE_RANGE') {
+            // Clear AGE_RANGE and OFFSET fields
+            setValue(`${fieldPath}.dateConfig.minAge`, null);
+            setValue(`${fieldPath}.dateConfig.maxAge`, null);
+            setValue(`${fieldPath}.dateConfig.offset`, null);
+            setValue(`${fieldPath}.dateConfig.unit`, null);
+          } else if (validationType === 'OFFSET') {
+            // Clear AGE_RANGE and DATE_RANGE fields
+            setValue(`${fieldPath}.dateConfig.minAge`, null);
+            setValue(`${fieldPath}.dateConfig.maxAge`, null);
+            setValue(`${fieldPath}.dateConfig.minDate`, null);
+            setValue(`${fieldPath}.dateConfig.maxDate`, null);
+            // Set default unit to MONTH if not set
+            const currentUnit = watch(`${fieldPath}.dateConfig.unit`);
+            if (!currentUnit) {
+              setValue(`${fieldPath}.dateConfig.unit`, 'MONTH');
+            }
+          }
+        }
+        
+        // Update the ref with current validationType
+        prevValidationTypesRef.current[fieldKey] = validationType;
+      }
+    });
+  }, [fieldFields, fieldArrayName, watch, setValue]);
 
   // Setup sensors for drag and drop
   const sensors = useSensors(
@@ -791,67 +849,215 @@ export default function FieldBuilder({
                   )}
 
                   {/* Date Picker Configuration */}
-                  {hasDateConfig && (
-                    <>
-                      <Grid item xs={12}>
-                        <Typography
-                          variant="caption"
-                          fontWeight={600}
-                          color="primary"
-                        >
-                          Date Picker Configuration
-                        </Typography>
-                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                      </Grid>
+                  {hasDateConfig && (() => {
+                    const validationType = watch(`${fieldArrayName}.${fieldIndex}.dateConfig.validationType`);
+                    return (
+                      <>
+                        <Grid item xs={12}>
+                          <Typography
+                            variant="caption"
+                            fontWeight={600}
+                            color="primary"
+                          >
+                            Date Picker Configuration
+                          </Typography>
+                          <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                        </Grid>
 
-                      <Grid item xs={12} md={6}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.dateConfig.format`}
-                          control={control}
-                          render={({ field }: { field: any }) => (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Date Format"
-                              select
-                              size="small"
-                              helperText="Format for displaying and parsing dates"
-                            >
-                              <MenuItem value="DD/MM/YYYY">DD/MM/YYYY</MenuItem>
-                              <MenuItem value="MM/DD/YYYY">MM/DD/YYYY</MenuItem>
-                              <MenuItem value="YYYY-MM-DD">YYYY-MM-DD</MenuItem>
-                              <MenuItem value="DD-MM-YYYY">DD-MM-YYYY</MenuItem>
-                              <MenuItem value="DD.MM.YYYY">DD.MM.YYYY</MenuItem>
-                            </TextField>
-                          )}
-                        />
-                      </Grid>
+                        <Grid item xs={12} md={6}>
+                          <Controller
+                            name={`${fieldArrayName}.${fieldIndex}.dateConfig.dateFormat`}
+                            control={control}
+                            render={({ field }: { field: any }) => (
+                              <TextField
+                                {...field}
+                                fullWidth
+                                label="Date Format"
+                                select
+                                size="small"
+                                helperText="Format for displaying and parsing dates"
+                                defaultValue="YYYY-MM-DD"
+                              >
+                                <MenuItem value="DD/MM/YYYY">DD/MM/YYYY</MenuItem>
+                                <MenuItem value="MM/DD/YYYY">MM/DD/YYYY</MenuItem>
+                                <MenuItem value="YYYY-MM-DD">YYYY-MM-DD</MenuItem>
+                                <MenuItem value="DD-MM-YYYY">DD-MM-YYYY</MenuItem>
+                                <MenuItem value="DD.MM.YYYY">DD.MM.YYYY</MenuItem>
+                              </TextField>
+                            )}
+                          />
+                        </Grid>
 
-                      <Grid item xs={12} md={6}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.dateConfig.validationType`}
-                          control={control}
-                          render={({ field }: { field: any }) => (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Date Validation Type"
-                              select
-                              size="small"
-                              helperText="Type of date validation"
-                            >
-                              <MenuItem value="ANY">Any Date</MenuItem>
-                              <MenuItem value="FUTURE_ONLY">Future Only</MenuItem>
-                              <MenuItem value="PAST_ONLY">Past Only</MenuItem>
-                              <MenuItem value="AGE_RANGE">Age Range</MenuItem>
-                              <MenuItem value="DATE_RANGE">Date Range</MenuItem>
-                              <MenuItem value="FROM_LAST_MONTH">From Last Month</MenuItem>
-                            </TextField>
-                          )}
-                        />
-                      </Grid>
-                    </>
-                  )}
+                        <Grid item xs={12} md={6}>
+                          <Controller
+                            name={`${fieldArrayName}.${fieldIndex}.dateConfig.validationType`}
+                            control={control}
+                            render={({ field }: { field: any }) => (
+                              <TextField
+                                {...field}
+                                fullWidth
+                                label="Date Validation Type"
+                                select
+                                size="small"
+                                helperText="Type of date validation"
+                              >
+                                <MenuItem value="ANY">Any Date</MenuItem>
+                                <MenuItem value="FUTURE">Future Only</MenuItem>
+                                <MenuItem value="PAST">Past Only</MenuItem>
+                                <MenuItem value="AGE_RANGE">Age Range</MenuItem>
+                                <MenuItem value="DATE_RANGE">Date Range</MenuItem>
+                                <MenuItem value="OFFSET">Offset</MenuItem>
+                              </TextField>
+                            )}
+                          />
+                        </Grid>
+
+                        {/* AGE_RANGE: Show minAge and maxAge */}
+                        {validationType === 'AGE_RANGE' && (
+                          <>
+                            <Grid item xs={12} md={6}>
+                              <Controller
+                                name={`${fieldArrayName}.${fieldIndex}.dateConfig.minAge`}
+                                control={control}
+                                render={({ field }: { field: any }) => (
+                                  <TextField
+                                    {...field}
+                                    fullWidth
+                                    label="Minimum Age"
+                                    type="number"
+                                    size="small"
+                                    helperText="Minimum age in years"
+                                    value={field.value ?? ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      field.onChange(val === '' ? null : Number(val));
+                                    }}
+                                  />
+                                )}
+                              />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                              <Controller
+                                name={`${fieldArrayName}.${fieldIndex}.dateConfig.maxAge`}
+                                control={control}
+                                render={({ field }: { field: any }) => (
+                                  <TextField
+                                    {...field}
+                                    fullWidth
+                                    label="Maximum Age"
+                                    type="number"
+                                    size="small"
+                                    helperText="Maximum age in years"
+                                    value={field.value ?? ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      field.onChange(val === '' ? null : Number(val));
+                                    }}
+                                  />
+                                )}
+                              />
+                            </Grid>
+                          </>
+                        )}
+
+                        {/* DATE_RANGE: Show minDate and maxDate */}
+                        {validationType === 'DATE_RANGE' && (
+                          <>
+                            <Grid item xs={12} md={6}>
+                              <Controller
+                                name={`${fieldArrayName}.${fieldIndex}.dateConfig.minDate`}
+                                control={control}
+                                render={({ field }: { field: any }) => (
+                                  <TextField
+                                    {...field}
+                                    fullWidth
+                                    label="Minimum Date"
+                                    type="date"
+                                    size="small"
+                                    helperText="Minimum allowed date (YYYY-MM-DD)"
+                                    InputLabelProps={{ shrink: true }}
+                                    value={field.value ?? ''}
+                                    onChange={(e) => {
+                                      field.onChange(e.target.value === '' ? null : e.target.value);
+                                    }}
+                                  />
+                                )}
+                              />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                              <Controller
+                                name={`${fieldArrayName}.${fieldIndex}.dateConfig.maxDate`}
+                                control={control}
+                                render={({ field }: { field: any }) => (
+                                  <TextField
+                                    {...field}
+                                    fullWidth
+                                    label="Maximum Date"
+                                    type="date"
+                                    size="small"
+                                    helperText="Maximum allowed date (YYYY-MM-DD)"
+                                    InputLabelProps={{ shrink: true }}
+                                    value={field.value ?? ''}
+                                    onChange={(e) => {
+                                      field.onChange(e.target.value === '' ? null : e.target.value);
+                                    }}
+                                  />
+                                )}
+                              />
+                            </Grid>
+                          </>
+                        )}
+
+                        {/* OFFSET: Show offset and unit */}
+                        {validationType === 'OFFSET' && (
+                          <>
+                            <Grid item xs={12} md={6}>
+                              <Controller
+                                name={`${fieldArrayName}.${fieldIndex}.dateConfig.offset`}
+                                control={control}
+                                render={({ field }: { field: any }) => (
+                                  <TextField
+                                    {...field}
+                                    fullWidth
+                                    label="Offset"
+                                    type="number"
+                                    size="small"
+                                    helperText="Number of units (e.g., 3 for 3 months)"
+                                    value={field.value ?? ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      field.onChange(val === '' ? null : Number(val));
+                                    }}
+                                  />
+                                )}
+                              />
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                              <Controller
+                                name={`${fieldArrayName}.${fieldIndex}.dateConfig.unit`}
+                                control={control}
+                                render={({ field }: { field: any }) => (
+                                  <TextField
+                                    {...field}
+                                    fullWidth
+                                    label="Unit"
+                                    select
+                                    size="small"
+                                    helperText="Time unit for offset (default: MONTH)"
+                                    defaultValue="MONTH"
+                                  >
+                                    <MenuItem value="DAY">Day</MenuItem>
+                                    <MenuItem value="MONTH">Month</MenuItem>
+                                    <MenuItem value="YEAR">Year</MenuItem>
+                                  </TextField>
+                                )}
+                              />
+                            </Grid>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
 
                   {/* OTP Verification */}
                   {hasOtpConfig && (
