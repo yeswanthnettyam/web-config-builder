@@ -64,25 +64,89 @@ export default function FormPreview({ formData }: FormPreviewProps) {
     });
   };
 
-  const checkCondition = (condition: any) => {
-    if (!condition || !condition.field) return true;
+  /**
+   * Evaluates a field condition (single condition or condition group).
+   * Supports backward compatibility: single conditions are treated as AND groups with one condition.
+   * 
+   * @param condition - Can be a single Condition or a ConditionGroup
+   * @returns true if condition is met, false otherwise
+   */
+  const checkCondition = (condition: any): boolean => {
+    if (!condition) return true;
+
+    // Check if it's a condition group (has operator 'AND' or 'OR' and conditions array)
+    if (condition.operator === 'AND' || condition.operator === 'OR') {
+      if (!condition.conditions || !Array.isArray(condition.conditions)) {
+        return true;
+      }
+
+      // Evaluate all conditions in the group
+      const results = condition.conditions.map((cond: any) => checkCondition(cond));
+
+      // Apply group logic
+      if (condition.operator === 'AND') {
+        return results.every((result: boolean) => result === true);
+      } else {
+        // OR
+        return results.some((result: boolean) => result === true);
+      }
+    }
+
+    // Single condition evaluation
+    if (!condition.field) return true;
 
     const fieldValue = formValues[condition.field];
     const expectedValue = condition.value;
+    
+    // Check if the field is a multi-select dropdown (value is array)
+    const isArrayValue = Array.isArray(fieldValue);
 
     switch (condition.operator) {
       case 'EQUALS':
+        if (isArrayValue) {
+          // For multi-select: check if array contains the expected value
+          return fieldValue.includes(expectedValue);
+        }
         return fieldValue === expectedValue;
       case 'NOT_EQUALS':
+        if (isArrayValue) {
+          // For multi-select: check if array does NOT contain the expected value
+          return !fieldValue.includes(expectedValue);
+        }
         return fieldValue !== expectedValue;
       case 'IN':
+        if (isArrayValue) {
+          // For multi-select: check if ANY selected value is in the expected list
+          return Array.isArray(expectedValue) && fieldValue.some((val: any) => expectedValue.includes(val));
+        }
+        // For single value: check if value is in expected list
         return Array.isArray(expectedValue) && expectedValue.includes(fieldValue);
+      case 'NOT_IN':
+        if (isArrayValue) {
+          // For multi-select: check if NONE of the selected values are in the expected list
+          return Array.isArray(expectedValue) && !fieldValue.some((val: any) => expectedValue.includes(val));
+        }
+        // For single value: check if value is NOT in expected list
+        return Array.isArray(expectedValue) && !expectedValue.includes(fieldValue);
+      case 'GREATER_THAN':
+        return typeof fieldValue === 'number' && typeof expectedValue === 'number' && fieldValue > expectedValue;
+      case 'LESS_THAN':
+        return typeof fieldValue === 'number' && typeof expectedValue === 'number' && fieldValue < expectedValue;
       case 'EXISTS':
         // EXISTS: field has any non-null, non-empty value
-        // For dropdowns, empty string means no selection
+        // For single dropdowns: empty string means no selection
+        // For multi-select dropdowns: empty array means no selection
+        if (isArrayValue) {
+          return fieldValue.length > 0;
+        }
         return fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
       case 'NOT_EXISTS':
         // NOT_EXISTS: field is null, undefined, or empty
+        // For single dropdowns: empty string means no selection
+        // For multi-select dropdowns: empty array means no selection
+        if (isArrayValue) {
+          return fieldValue.length === 0;
+        }
         return fieldValue === undefined || fieldValue === null || fieldValue === '';
       default:
         return true;
@@ -108,7 +172,12 @@ export default function FormPreview({ formData }: FormPreviewProps) {
     // Initialize values from field.value if present
     allFields.forEach((field: any) => {
       if (field.id && field.value !== undefined && field.value !== null) {
-        initialValues[field.id] = field.value;
+        // For multi-select dropdowns, ensure value is an array
+        if (field.type === 'DROPDOWN' && field.selectionMode === 'MULTIPLE') {
+          initialValues[field.id] = Array.isArray(field.value) ? field.value : [field.value];
+        } else {
+          initialValues[field.id] = field.value;
+        }
       }
     });
 
@@ -142,23 +211,16 @@ export default function FormPreview({ formData }: FormPreviewProps) {
 
       const wasVisible = previousVisibilityRef.current[field.id] ?? true;
       // Use ref to get current formValues to avoid dependency issues
-      const currentFormValues = formValuesRef.current;
-      const fieldValue = currentFormValues[field.visibleWhen.field];
-      const expectedValue = field.visibleWhen.value;
-      let isVisible = true;
-
-      // Re-evaluate condition using current form values
-      if (field.visibleWhen.operator === 'EQUALS') {
-        isVisible = fieldValue === expectedValue;
-      } else if (field.visibleWhen.operator === 'NOT_EQUALS') {
-        isVisible = fieldValue !== expectedValue;
-      } else if (field.visibleWhen.operator === 'IN') {
-        isVisible = Array.isArray(expectedValue) && expectedValue.includes(fieldValue);
-      } else if (field.visibleWhen.operator === 'EXISTS') {
-        isVisible = fieldValue !== undefined && fieldValue !== null && fieldValue !== '';
-      } else if (field.visibleWhen.operator === 'NOT_EXISTS') {
-        isVisible = fieldValue === undefined || fieldValue === null || fieldValue === '';
-      }
+      // Temporarily update formValues for checkCondition to use current values
+      const previousFormValues = formValues;
+      formValuesRef.current = formValues;
+      
+      // Re-evaluate condition using the updated checkCondition function
+      // This now supports both single conditions and condition groups
+      const isVisible = checkCondition(field.visibleWhen);
+      
+      // Restore previous formValues ref (though it should be the same)
+      formValuesRef.current = previousFormValues;
 
       // If field was visible and now hidden, clear its value
       if (wasVisible && !isVisible) {
@@ -226,6 +288,7 @@ export default function FormPreview({ formData }: FormPreviewProps) {
             inputProps={{
               min: field.min,
               max: field.max,
+              minLength: field.minLength,
               maxLength: field.maxLength,
             }}
             helperText={field.placeholder}
@@ -245,36 +308,138 @@ export default function FormPreview({ formData }: FormPreviewProps) {
             disabled={isDisabled}
             value={formValues[field.id] ?? field.value ?? ''}
             onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
+            inputProps={{
+              minLength: field.minLength,
+              maxLength: field.maxLength,
+            }}
           />
         );
 
       case 'DROPDOWN':
         const options = field.dataSource?.staticData || [];
-        return (
-          <TextField
-            key={field.id}
-            fullWidth
-            label={field.label}
-            select
-            required={isRequired}
-            disabled={isDisabled}
-            value={formValues[field.id] ?? field.value ?? ''}
-            onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
-            helperText={
-              field.dataSource?.type === 'MASTER_DATA'
-                ? `Master Data: ${field.dataSource?.masterDataKey}`
-                : field.dataSource?.type === 'API'
-                ? `API: ${field.dataSource?.apiEndpoint}`
-                : ''
+        const selectionMode = field.selectionMode || 'SINGLE'; // Default to SINGLE for backward compatibility
+        const isMultiple = selectionMode === 'MULTIPLE';
+        
+        if (isMultiple) {
+          // Multi-select dropdown with checkboxes
+          const selectedValues = Array.isArray(formValues[field.id]) 
+            ? formValues[field.id] 
+            : (formValues[field.id] ? [formValues[field.id]] : []);
+          
+          const handleMultiSelectChange = (optionValue: string, checked: boolean) => {
+            let newValues: string[];
+            if (checked) {
+              // Add to selection
+              newValues = [...selectedValues, optionValue];
+              // Enforce maxSelections if set
+              if (field.maxSelections && newValues.length > field.maxSelections) {
+                return; // Don't allow exceeding max
+              }
+            } else {
+              // Remove from selection
+              newValues = selectedValues.filter((v: string) => v !== optionValue);
             }
-          >
-            {options.map((option: any) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
-        );
+            handleFieldChange(field.id, newValues, field.type);
+          };
+
+          const minSelections = field.minSelections || 0;
+          const maxSelections = field.maxSelections;
+          const selectionCount = selectedValues.length;
+          const isValidSelection = 
+            (!minSelections || selectionCount >= minSelections) &&
+            (!maxSelections || selectionCount <= maxSelections);
+
+          return (
+            <Box key={field.id}>
+              <Typography variant="body2" sx={{ marginBottom: 1, fontWeight: 500 }}>
+                {field.label}
+                {isRequired && <span style={{ color: 'red' }}> *</span>}
+              </Typography>
+              <Box
+                sx={{
+                  border: '1px solid',
+                  borderColor: isValidSelection ? 'divider' : 'error.main',
+                  borderRadius: 1,
+                  padding: 1,
+                  backgroundColor: isDisabled ? 'action.disabledBackground' : 'background.paper',
+                }}
+              >
+                {options.map((option: any) => {
+                  const isChecked = selectedValues.includes(option.value);
+                  return (
+                    <FormControlLabel
+                      key={option.value}
+                      control={
+                        <Checkbox
+                          checked={isChecked}
+                          onChange={(e) => handleMultiSelectChange(option.value, e.target.checked)}
+                          disabled={isDisabled || (maxSelections && !isChecked && selectionCount >= maxSelections)}
+                        />
+                      }
+                      label={option.label}
+                    />
+                  );
+                })}
+              </Box>
+              <Typography
+                variant="caption"
+                sx={{
+                  marginTop: 0.5,
+                  color: isValidSelection ? 'text.secondary' : 'error.main',
+                }}
+              >
+                {minSelections > 0 && maxSelections
+                  ? `Select ${minSelections}-${maxSelections} items (${selectionCount} selected)`
+                  : minSelections > 0
+                  ? `Select at least ${minSelections} items (${selectionCount} selected)`
+                  : maxSelections
+                  ? `Select up to ${maxSelections} items (${selectionCount} selected)`
+                  : `${selectionCount} item(s) selected`}
+                {!isValidSelection && minSelections > 0 && selectionCount < minSelections && (
+                  <span> - Minimum {minSelections} required</span>
+                )}
+                {!isValidSelection && maxSelections && selectionCount > maxSelections && (
+                  <span> - Maximum {maxSelections} allowed</span>
+                )}
+              </Typography>
+              {field.placeholder && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', marginTop: 0.5 }}>
+                  {field.placeholder}
+                </Typography>
+              )}
+            </Box>
+          );
+        } else {
+          // Single-select dropdown (existing behavior)
+          return (
+            <TextField
+              key={field.id}
+              fullWidth
+              label={field.label}
+              select
+              required={isRequired}
+              disabled={isDisabled}
+              value={formValues[field.id] ?? field.value ?? ''}
+              onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
+              placeholder={field.placeholder}
+              helperText={
+                field.placeholder
+                  ? field.placeholder
+                  : field.dataSource?.type === 'MASTER_DATA'
+                  ? `Master Data: ${field.dataSource?.masterDataKey}`
+                  : field.dataSource?.type === 'API'
+                  ? `API: ${field.dataSource?.apiEndpoint}`
+                  : ''
+              }
+            >
+              {options.map((option: any) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          );
+        }
 
       case 'DATE':
         return (
@@ -287,7 +452,9 @@ export default function FormPreview({ formData }: FormPreviewProps) {
             disabled={isDisabled}
             value={formValues[field.id] ?? field.value ?? ''}
             onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
+            placeholder={field.placeholder}
             InputLabelProps={{ shrink: true }}
+            helperText={field.placeholder}
           />
         );
 
@@ -341,7 +508,7 @@ export default function FormPreview({ formData }: FormPreviewProps) {
               disabled={isDisabled}
               fullWidth
             >
-              Choose File
+              {field.placeholder || 'Choose File'}
             </Button>
             {field.allowedFileTypes && (
               <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
@@ -358,12 +525,15 @@ export default function FormPreview({ formData }: FormPreviewProps) {
             <TextField
               fullWidth
               label={field.label}
-              placeholder="Enter OTP"
+              placeholder={field.placeholder || "Enter OTP"}
               required={isRequired}
               disabled={isDisabled}
               value={formValues[field.id] ?? field.value ?? ''}
               onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
-              inputProps={{ maxLength: field.otpConfig?.otpLength || 6 }}
+              inputProps={{
+                minLength: field.minLength,
+                maxLength: field.maxLength ?? field.otpConfig?.otpLength ?? 6,
+              }}
             />
             <Box sx={{ display: 'flex', gap: 1, marginTop: 1 }}>
               <Button variant="outlined" size="small" fullWidth>
@@ -394,7 +564,8 @@ export default function FormPreview({ formData }: FormPreviewProps) {
                 onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
                 type={verifiedInputConfig?.input?.dataType === 'NUMBER' ? 'number' : 'text'}
                 inputProps={{
-                  maxLength: verifiedInputConfig?.input?.maxLength,
+                  minLength: field.minLength ?? verifiedInputConfig?.input?.minLength,
+                  maxLength: field.maxLength ?? verifiedInputConfig?.input?.maxLength,
                   min: verifiedInputConfig?.input?.min,
                   max: verifiedInputConfig?.input?.max,
                 }}
@@ -506,6 +677,10 @@ export default function FormPreview({ formData }: FormPreviewProps) {
               disabled={isDisabled}
               value={formValues[field.id] ?? field.value ?? ''}
               onChange={(e) => handleFieldChange(field.id, e.target.value, field.type)}
+              inputProps={{
+                minLength: field.minLength,
+                maxLength: field.maxLength,
+              }}
             />
             <Button 
               variant="outlined" 

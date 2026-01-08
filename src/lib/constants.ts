@@ -71,6 +71,7 @@ export const OPERATORS = [
   { value: 'LESS_THAN', label: 'Less Than' },
   { value: 'GREATER_THAN', label: 'Greater Than' },
   { value: 'IN', label: 'In' },
+  { value: 'NOT_IN', label: 'Not In' },
   { value: 'EXISTS', label: 'Exists' },
   { value: 'NOT_EXISTS', label: 'Not Exists' },
 ] as const;

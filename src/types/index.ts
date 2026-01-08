@@ -88,11 +88,36 @@ export interface DataSource {
   apiEndpoint?: string;
 }
 
+/**
+ * Simple condition for field dependency evaluation.
+ * Used for single field comparisons.
+ */
 export interface Condition {
   field: string;
-  operator: 'EQUALS' | 'NOT_EQUALS' | 'LESS_THAN' | 'GREATER_THAN' | 'IN';
-  value: string | number | string[];
+  operator: 'EQUALS' | 'NOT_EQUALS' | 'LESS_THAN' | 'GREATER_THAN' | 'IN' | 'NOT_IN' | 'EXISTS' | 'NOT_EXISTS';
+  // value is REQUIRED for: EQUALS, NOT_EQUALS, IN, NOT_IN, GREATER_THAN, LESS_THAN
+  // value MUST NOT be present for: EXISTS, NOT_EXISTS
+  value?: string | number | string[];
 }
+
+/**
+ * Condition Group DSL for complex dependency logic.
+ * Supports AND/OR logic and nested conditions.
+ * 
+ * Backward Compatibility:
+ * - Single conditions are internally treated as: { operator: "AND", conditions: [singleCondition] }
+ * - No migration required for existing configs
+ */
+export interface ConditionGroup {
+  operator: 'AND' | 'OR';
+  conditions: Array<Condition | ConditionGroup>;
+}
+
+/**
+ * Field dependency condition type.
+ * Supports both legacy single conditions and new condition groups for backward compatibility.
+ */
+export type FieldCondition = Condition | ConditionGroup;
 
 export interface ConsentConfig {
   title: string;
@@ -202,9 +227,26 @@ export interface Field {
   keyboard?: KeyboardType;
   min?: number;
   max?: number;
+  minLength?: number;
   maxLength?: number;
   value?: any; // Optional default/initial value
   dataSource?: DataSource;
+  /**
+   * Dropdown selection mode.
+   * - SINGLE: Single selection (default, backward compatible)
+   * - MULTIPLE: Multiple selection (stores value as array)
+   * 
+   * minSelections and maxSelections are only valid when selectionMode = MULTIPLE
+   */
+  selectionMode?: 'SINGLE' | 'MULTIPLE';
+  /**
+   * Minimum number of selections required (only for MULTIPLE mode)
+   */
+  minSelections?: number;
+  /**
+   * Maximum number of selections allowed (only for MULTIPLE mode)
+   */
+  maxSelections?: number;
   allowedFileTypes?: string[];
   maxFileSizeMB?: number;
   maxFiles?: number;
@@ -212,9 +254,24 @@ export interface Field {
   apiVerificationConfig?: ApiVerificationConfig;
   verifiedInputConfig?: VerifiedInputConfig;
   dateConfig?: DateConfig;
-  visibleWhen?: Condition;
-  enabledWhen?: Condition;
-  requiredWhen?: Condition;
+  /**
+   * Visibility dependency condition.
+   * Supports both legacy single conditions and new condition groups.
+   * Backward compatible: single conditions are automatically wrapped in AND groups.
+   */
+  visibleWhen?: FieldCondition;
+  /**
+   * Enabled state dependency condition.
+   * Supports both legacy single conditions and new condition groups.
+   * Backward compatible: single conditions are automatically wrapped in AND groups.
+   */
+  enabledWhen?: FieldCondition;
+  /**
+   * Required state dependency condition.
+   * Supports both legacy single conditions and new condition groups.
+   * Backward compatible: single conditions are automatically wrapped in AND groups.
+   */
+  requiredWhen?: FieldCondition;
   order?: number;
   parentId?: string;
   parentType?: 'SECTION' | 'SUBSECTION';
@@ -255,8 +312,31 @@ export interface Action {
   mapErrorsToFields?: boolean;
 }
 
+/**
+ * Layout configuration that supports both legacy string format and new object format
+ * for backward compatibility.
+ * 
+ * Legacy format: layout: "FORM"
+ * New format: layout: { type: "FORM", allowBackNavigation: true }
+ */
+export type LayoutConfig = LayoutType | {
+  type: LayoutType;
+  allowBackNavigation?: boolean;
+};
+
 export interface ScreenUIConfig {
-  layout: LayoutType;
+  /**
+   * Layout configuration. Can be a string (LayoutType) for backward compatibility,
+   * or an object with type and optional allowBackNavigation flag.
+   * 
+   * UI-level back navigation control:
+   * - Controls UI visibility ONLY (not navigation logic)
+   * - Defaults to true if missing
+   * - Final back navigation is enabled only if BOTH:
+   *   * screen.ui.layout.allowBackNavigation == true (UI level)
+   *   * flow.allowBackNavigation == true (Journey rule)
+   */
+  layout: LayoutConfig;
   sections: Section[];
   actions: Action[];
 }
@@ -454,8 +534,45 @@ export interface FlowScreenConfig {
     background?: ServiceCall[];
   };
   conditions: NavigationCondition[];
+  /**
+   * JOURNEY RULE: Allow Back Navigation
+   * 
+   * This setting defines a journey-level rule that determines whether the backend
+   * permits moving backward from this screen node in the flow.
+   * 
+   * IMPORTANT: This is NOT a UI control setting.
+   * - Flow Builder defines WHERE back navigation goes, not WHETHER UI shows it
+   * - Backend enforces this rule by checking allowBack along with retry limits
+   *   and flow history when processing back navigation requests
+   * - Frontend UI visibility is handled independently by the runtime application
+   * 
+   * Runtime Behavior:
+   * - On back request, backend checks: flow.allowBack, retry limits, flow history
+   * - Backend returns previous valid screen or rejects the request
+   * - Flow Builder is authoritative for journey correctness
+   */
   allowBack?: boolean;
+  /**
+   * JOURNEY RULE: Allow Skip
+   * 
+   * This setting defines a journey-level rule that determines whether the backend
+   * permits skipping this screen in the journey flow.
+   * 
+   * IMPORTANT: This is NOT a UI control setting.
+   * - Backend validates this rule when processing skip requests
+   * - Frontend UI visibility is handled independently by the runtime application
+   */
   allowSkip?: boolean;
+  /**
+   * JOURNEY RULE: Max Retries
+   * 
+   * This setting defines the maximum number of retry attempts allowed for this
+   * screen node in the journey flow.
+   * 
+   * IMPORTANT: This is enforced by the backend.
+   * - Backend tracks retry attempts and enforces this limit
+   * - Used in conjunction with allowBack to determine valid navigation paths
+   */
   maxRetries?: number;
 }
 
@@ -491,8 +608,21 @@ export interface ScreenFlowNode {
     onSubmit?: ServiceCall[];
     background?: ServiceCall[];
   };
+  /**
+   * JOURNEY RULE: Allow Back Navigation
+   * Backend-enforced rule determining if backward navigation is permitted from this node.
+   * Flow Builder defines WHERE back goes, not WHETHER UI shows it.
+   */
   allowBack?: boolean;
+  /**
+   * JOURNEY RULE: Allow Skip
+   * Backend-enforced rule determining if this screen can be skipped in the journey.
+   */
   allowSkip?: boolean;
+  /**
+   * JOURNEY RULE: Max Retries
+   * Backend-enforced maximum retry attempts for this screen node.
+   */
   maxRetries?: number;
 }
 

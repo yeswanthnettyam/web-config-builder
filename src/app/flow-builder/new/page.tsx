@@ -862,6 +862,18 @@ function NewFlowPageContent() {
     }
   }, [formValues, configuredScreens, screenConfigs, flowStatus]);
 
+  /**
+   * Builds the complete FlowConfig from form values and screen configurations.
+   * 
+   * IMPORTANT: Journey Rules (allowBack, allowSkip, maxRetries)
+   * - These settings are JOURNEY RULES, not UI controls
+   * - Flow Builder is authoritative for journey correctness
+   * - Backend enforces these rules at runtime:
+   *   * On back request: backend checks allowBack, retry limits, flow history
+   *   * Backend returns previous valid screen or rejects
+   *   * Flow Builder defines WHERE back goes, not WHETHER UI shows it
+   * - Frontend UI visibility is handled independently by runtime application
+   */
   const buildFlowConfig = useCallback((): FlowConfig | null => {
     if (!formValues.flowId || !formValues.startScreen) {
       return null;
@@ -899,6 +911,8 @@ function NewFlowPageContent() {
       
       console.log('📦 Mapped conditions:', mappedConditions);
       
+      // Include journey rules (allowBack, allowSkip, maxRetries) in the flow config
+      // These are backend-enforced rules, not UI control settings
       return {
         screenId: config.screenId,
         displayName: config.displayName,

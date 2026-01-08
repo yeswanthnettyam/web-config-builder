@@ -640,7 +640,13 @@ export default function NodeConfigPanel({
       <Divider sx={{ marginY: 2 }} />
 
       <Typography variant="subtitle1" gutterBottom>
-        Advanced Settings
+        Journey Rules
+      </Typography>
+
+      <Typography variant="caption" color="text.secondary" sx={{ marginBottom: 2, display: 'block' }}>
+        These settings define journey-level rules enforced by the backend at runtime.
+        Flow Builder determines WHERE navigation goes, not WHETHER UI controls are visible.
+        The backend validates and enforces these rules when processing navigation requests.
       </Typography>
 
       <FormControlLabel
@@ -653,6 +659,11 @@ export default function NodeConfigPanel({
         label="Allow Back Navigation"
         sx={{ marginBottom: 1 }}
       />
+      <Typography variant="caption" color="text.secondary" sx={{ marginBottom: 2, display: 'block', marginLeft: 4 }}>
+        Journey Rule: Determines if the backend permits moving backward from this screen.
+        Backend checks this rule along with retry limits and flow history before allowing back navigation.
+        This does NOT control UI button visibility - that is handled by the frontend independently.
+      </Typography>
 
       <FormControlLabel
         control={
@@ -664,6 +675,11 @@ export default function NodeConfigPanel({
         label="Allow Skip"
         sx={{ marginBottom: 2 }}
       />
+      <Typography variant="caption" color="text.secondary" sx={{ marginBottom: 2, display: 'block', marginLeft: 4 }}>
+        Journey Rule: Determines if the backend permits skipping this screen in the journey.
+        Backend validates this rule when processing skip requests.
+        This does NOT control UI button visibility - that is handled by the frontend independently.
+      </Typography>
 
       <TextField
         fullWidth
@@ -671,7 +687,8 @@ export default function NodeConfigPanel({
         type="number"
         value={localScreen.maxRetries || 3}
         onChange={(e) => handleFieldChange('maxRetries', parseInt(e.target.value) || 3)}
-        sx={{ marginBottom: 3 }}
+        sx={{ marginBottom: 1 }}
+        helperText="Journey Rule: Maximum number of retry attempts allowed for this screen. Backend enforces this limit."
       />
 
       <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', marginTop: 3, paddingTop: 2, borderTop: '1px solid', borderColor: 'divider' }}>

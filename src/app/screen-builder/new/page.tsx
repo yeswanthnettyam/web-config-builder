@@ -88,6 +88,7 @@ const screenConfigSchema = z.object({
     branchCode: z.string().optional(),
   }),
   layout: z.string().min(1, 'Layout is required'),
+  allowBackNavigation: z.boolean().optional().default(true),
   sections: z.array(
     z.object({
       id: z.string(),
@@ -166,6 +167,7 @@ function NewScreenConfigPageContent() {
         branchCode: '',
       },
       layout: 'FORM',
+      allowBackNavigation: true,
       sections: [
         {
           id: 'section_1',
@@ -240,7 +242,21 @@ function NewScreenConfigPageContent() {
           branchCode: existingConfig.config.scope?.branchCode || '',
         };
         setValue('scope', existingScope);
-        setValue('layout', existingConfig.config.ui?.layout || 'FORM');
+        
+        // Handle layout: can be string (legacy) or object (new format)
+        const existingLayout = existingConfig.config.ui?.layout;
+        if (typeof existingLayout === 'string') {
+          // Legacy format: layout is just a string
+          setValue('layout', existingLayout);
+          setValue('allowBackNavigation', true); // Default to true for legacy configs
+        } else if (existingLayout && typeof existingLayout === 'object') {
+          // New format: layout is an object with type and allowBackNavigation
+          setValue('layout', existingLayout.type || 'FORM');
+          setValue('allowBackNavigation', existingLayout.allowBackNavigation ?? true);
+        } else {
+          setValue('layout', 'FORM');
+          setValue('allowBackNavigation', true);
+        }
         
         // Load sections
         if (existingConfig.config.ui?.sections) {
@@ -264,19 +280,56 @@ function NewScreenConfigPageContent() {
     }
   }, [isEditMode, isCloneMode, editId, cloneId, setValue, router]);
 
+  // Helper function to ensure all fields have a value property
+  const normalizeField = (field: any): Field => {
+    return {
+      ...field,
+      value: field.value !== undefined && field.value !== null ? field.value : null,
+    };
+  };
+
+  // Helper function to normalize all fields in an array
+  const normalizeFields = (fields: any[]): Field[] => {
+    return fields ? fields.map(normalizeField) : [];
+  };
+
   // Update complete config for preview (including validations from saved config)
   const screenId = watch('screenId');
   
   useEffect(() => {
     const subscription = watch((formData) => {
+      // Normalize sections to ensure all fields have value property
+      const normalizedSections = (formData.sections || []).map((section: any) => {
+        if (section.hasSubSections) {
+          return {
+            ...section,
+            subSections: (section.subSections || []).map((subSection: any) => ({
+              ...subSection,
+              fields: normalizeFields(subSection.fields || []),
+            })),
+          };
+        } else {
+          return {
+            ...section,
+            fields: normalizeFields(section.fields || []),
+          };
+        }
+      });
+
+      // Build layout config in the required format for preview
+      const previewLayoutConfig = {
+        type: formData.layout,
+        allowBackNavigation: formData.allowBackNavigation ?? true,
+      };
+
       // Build complete config including validations
       let complete: any = {
         screenId: formData.screenId,
         screenName: formData.screenName,
         title: formData.title,
         scope: formData.scope,
-        layout: formData.layout,
-        sections: formData.sections,
+        layout: previewLayoutConfig,
+        sections: normalizedSections,
         actions: formData.actions,
       };
       
@@ -687,7 +740,10 @@ function NewScreenConfigPageContent() {
             title: section.title,
             collapsible: section.collapsible,
             defaultExpanded: section.defaultExpanded,
-            subSections: section.subSections as SubSection[],
+            subSections: (section.subSections || []).map((subSection: any) => ({
+              ...subSection,
+              fields: normalizeFields(subSection.fields || []),
+            })) as SubSection[],
           };
         } else {
           return {
@@ -695,7 +751,7 @@ function NewScreenConfigPageContent() {
             title: section.title,
             collapsible: section.collapsible,
             defaultExpanded: section.defaultExpanded,
-            fields: section.fields as Field[],
+            fields: normalizeFields(section.fields || []),
           };
         }
       });
@@ -703,6 +759,14 @@ function NewScreenConfigPageContent() {
       // Get existing config to preserve validations
       const existingConfig = isEditMode && !isCloneMode ? getScreenConfigById(editId) : null;
       
+      // Build layout config in the required format: { type: LayoutType, allowBackNavigation: boolean }
+      // Always save as object format to match requirement: ui.layout.allowBackNavigation
+      // Default value is true if missing (handled in form defaults)
+      const layoutConfig = {
+        type: data.layout as any,
+        allowBackNavigation: data.allowBackNavigation ?? true,
+      };
+
       const config: Partial<ScreenConfig> = {
         screenId: data.screenId,
         title: data.title,
@@ -710,7 +774,7 @@ function NewScreenConfigPageContent() {
         status: 'DRAFT',
         scope: data.scope,
         ui: {
-          layout: data.layout as any,
+          layout: layoutConfig,
           sections: sections,
           actions: data.actions as any[],
         },
@@ -1035,6 +1099,31 @@ function NewScreenConfigPageContent() {
                           </MenuItem>
                         ))}
                       </TextField>
+                    )}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <Controller
+                    name="allowBackNavigation"
+                    control={control}
+                    render={({ field }) => (
+                      <Box>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              {...field}
+                              checked={field.value ?? true}
+                            />
+                          }
+                          label="Allow Back Navigation"
+                        />
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', marginTop: 0.5, marginLeft: 4 }}>
+                          UI-level control: Controls visibility of back button in the UI. 
+                          Back navigation is enabled only if BOTH this setting and the Flow Builder's allowBackNavigation are true.
+                          Defaults to true if not specified.
+                        </Typography>
+                      </Box>
                     )}
                   />
                 </Grid>

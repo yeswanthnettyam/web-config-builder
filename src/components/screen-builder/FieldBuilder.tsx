@@ -42,6 +42,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import SortableField from './SortableField';
+import FieldConditionBuilder from './FieldConditionBuilder';
 import {
   FIELD_TYPES,
   DATA_SOURCE_TYPES,
@@ -365,7 +366,8 @@ export default function FieldBuilder({
           const hasApiVerificationConfig = currentFieldType === 'API_VERIFICATION';
           const hasFileConfig = currentFieldType === 'FILE_UPLOAD';
           const hasDateConfig = currentFieldType === 'DATE';
-          const hasTextInput = ['TEXT', 'NUMBER', 'TEXTAREA'].includes(currentFieldType);
+          const hasTextInput = ['TEXT', 'NUMBER', 'TEXTAREA', 'OTP_VERIFICATION', 'API_VERIFICATION'].includes(currentFieldType);
+          const hasInputCapable = ['TEXT', 'NUMBER', 'DATE', 'DROPDOWN', 'TEXTAREA', 'VERIFIED_INPUT', 'OTP_VERIFICATION', 'API_VERIFICATION', 'FILE_UPLOAD'].includes(currentFieldType);
           const verificationMode = watch(`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.mode`);
               const currentField = watch(`${fieldArrayName}.${fieldIndex}`);
 
@@ -568,6 +570,26 @@ export default function FieldBuilder({
                           />
                         )}
                       />
+                      </Grid>
+                  )}
+
+                  {/* Placeholder - for all input-capable fields */}
+                  {hasInputCapable && (
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.placeholder`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                            label="Placeholder (Optional)"
+                              size="small"
+                              placeholder="e.g., Enter your email"
+                            helperText="Optional: Placeholder text shown when field is empty"
+                            />
+                          )}
+                        />
                     </Grid>
                   )}
 
@@ -583,22 +605,6 @@ export default function FieldBuilder({
                           Text Input Properties
                         </Typography>
                         <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                      </Grid>
-
-                      <Grid item xs={12} md={6}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.placeholder`}
-                          control={control}
-                          render={({ field }: { field: any }) => (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Placeholder"
-                              size="small"
-                              placeholder="e.g., Enter your email"
-                            />
-                          )}
-                        />
                       </Grid>
 
                       <Grid item xs={12} md={6}>
@@ -659,7 +665,25 @@ export default function FieldBuilder({
                         </>
                       )}
 
-                      {currentFieldType === 'TEXT' && (
+                      {(currentFieldType === 'TEXT' || currentFieldType === 'NUMBER' || currentFieldType === 'TEXTAREA') && (
+                        <>
+                          <Grid item xs={12} md={6}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.minLength`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Min Length"
+                                  type="number"
+                                  size="small"
+                                  inputProps={{ min: 0 }}
+                                  helperText="Minimum character length"
+                                />
+                              )}
+                            />
+                          </Grid>
                         <Grid item xs={12} md={6}>
                           <Controller
                             name={`${fieldArrayName}.${fieldIndex}.maxLength`}
@@ -671,10 +695,13 @@ export default function FieldBuilder({
                                 label="Max Length"
                                 type="number"
                                 size="small"
+                                  inputProps={{ min: 0 }}
+                                  helperText="Maximum character length"
                               />
                             )}
                           />
                         </Grid>
+                        </>
                       )}
                     </>
                   )}
@@ -715,6 +742,98 @@ export default function FieldBuilder({
                           )}
                         />
                       </Grid>
+
+                      {/* Selection Mode (for DROPDOWN only) */}
+                      {currentFieldType === 'DROPDOWN' && (
+                        <>
+                          <Grid item xs={12} md={6}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.selectionMode`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Selection Mode"
+                                  select
+                                  size="small"
+                                  value={field.value || 'SINGLE'}
+                                  helperText="SINGLE: One selection | MULTIPLE: Multiple selections"
+                                >
+                                  <MenuItem value="SINGLE">Single Select</MenuItem>
+                                  <MenuItem value="MULTIPLE">Multiple Select</MenuItem>
+                                </TextField>
+                              )}
+                            />
+                          </Grid>
+
+                          {/* Min/Max Selections (only for MULTIPLE mode) */}
+                          {watch(`${fieldArrayName}.${fieldIndex}.selectionMode`) === 'MULTIPLE' && (
+                            <>
+                              <Grid item xs={12} md={6}>
+                                <Controller
+                                  name={`${fieldArrayName}.${fieldIndex}.minSelections`}
+                                  control={control}
+                                  render={({ field }: { field: any }) => {
+                                    const maxSelections = watch(`${fieldArrayName}.${fieldIndex}.maxSelections`);
+                                    return (
+                                      <TextField
+                                        {...field}
+                                        fullWidth
+                                        label="Minimum Selections"
+                                        type="number"
+                                        size="small"
+                                        inputProps={{ min: 0 }}
+                                        helperText={
+                                          maxSelections && field.value > maxSelections
+                                            ? 'Must be ≤ Maximum Selections'
+                                            : 'Minimum number of items to select'
+                                        }
+                                        error={maxSelections && field.value > maxSelections}
+                                        onChange={(e) => {
+                                          const value = parseInt(e.target.value) || 0;
+                                          field.onChange(value >= 0 ? value : 0);
+                                        }}
+                                      />
+                                    );
+                                  }}
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={6}>
+                                <Controller
+                                  name={`${fieldArrayName}.${fieldIndex}.maxSelections`}
+                                  control={control}
+                                  render={({ field }: { field: any }) => {
+                                    const minSelections = watch(`${fieldArrayName}.${fieldIndex}.minSelections`);
+                                    return (
+                                      <TextField
+                                        {...field}
+                                        fullWidth
+                                        label="Maximum Selections"
+                                        type="number"
+                                        size="small"
+                                        inputProps={{ min: 1 }}
+                                        helperText={
+                                          minSelections && field.value < minSelections
+                                            ? 'Must be ≥ Minimum Selections'
+                                            : field.value < 1
+                                            ? 'Must be at least 1'
+                                            : 'Maximum number of items to select'
+                                        }
+                                        error={(minSelections && field.value < minSelections) || field.value < 1}
+                                        onChange={(e) => {
+                                          const value = parseInt(e.target.value) || 1;
+                                          field.onChange(value >= 1 ? value : 1);
+                                        }}
+                                      />
+                                    );
+                                  }}
+                                />
+                              </Grid>
+                            </>
+                          )}
+                        </>
+                      )}
 
                       {watch(
                         `${fieldArrayName}.${fieldIndex}.dataSource.type`
@@ -852,62 +971,62 @@ export default function FieldBuilder({
                   {hasDateConfig && (() => {
                     const validationType = watch(`${fieldArrayName}.${fieldIndex}.dateConfig.validationType`);
                     return (
-                      <>
-                        <Grid item xs={12}>
-                          <Typography
-                            variant="caption"
-                            fontWeight={600}
-                            color="primary"
-                          >
-                            Date Picker Configuration
-                          </Typography>
-                          <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                        </Grid>
+                    <>
+                      <Grid item xs={12}>
+                        <Typography
+                          variant="caption"
+                          fontWeight={600}
+                          color="primary"
+                        >
+                          Date Picker Configuration
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
 
-                        <Grid item xs={12} md={6}>
-                          <Controller
+                      <Grid item xs={12} md={6}>
+                        <Controller
                             name={`${fieldArrayName}.${fieldIndex}.dateConfig.dateFormat`}
-                            control={control}
-                            render={({ field }: { field: any }) => (
-                              <TextField
-                                {...field}
-                                fullWidth
-                                label="Date Format"
-                                select
-                                size="small"
-                                helperText="Format for displaying and parsing dates"
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Date Format"
+                              select
+                              size="small"
+                              helperText="Format for displaying and parsing dates"
                                 defaultValue="YYYY-MM-DD"
-                              >
-                                <MenuItem value="DD/MM/YYYY">DD/MM/YYYY</MenuItem>
-                                <MenuItem value="MM/DD/YYYY">MM/DD/YYYY</MenuItem>
-                                <MenuItem value="YYYY-MM-DD">YYYY-MM-DD</MenuItem>
-                                <MenuItem value="DD-MM-YYYY">DD-MM-YYYY</MenuItem>
-                                <MenuItem value="DD.MM.YYYY">DD.MM.YYYY</MenuItem>
-                              </TextField>
-                            )}
-                          />
-                        </Grid>
+                            >
+                              <MenuItem value="DD/MM/YYYY">DD/MM/YYYY</MenuItem>
+                              <MenuItem value="MM/DD/YYYY">MM/DD/YYYY</MenuItem>
+                              <MenuItem value="YYYY-MM-DD">YYYY-MM-DD</MenuItem>
+                              <MenuItem value="DD-MM-YYYY">DD-MM-YYYY</MenuItem>
+                              <MenuItem value="DD.MM.YYYY">DD.MM.YYYY</MenuItem>
+                            </TextField>
+                          )}
+                        />
+                      </Grid>
 
-                        <Grid item xs={12} md={6}>
-                          <Controller
-                            name={`${fieldArrayName}.${fieldIndex}.dateConfig.validationType`}
-                            control={control}
-                            render={({ field }: { field: any }) => (
-                              <TextField
-                                {...field}
-                                fullWidth
-                                label="Date Validation Type"
-                                select
-                                size="small"
-                                helperText="Type of date validation"
-                              >
-                                <MenuItem value="ANY">Any Date</MenuItem>
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.dateConfig.validationType`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Date Validation Type"
+                              select
+                              size="small"
+                              helperText="Type of date validation"
+                            >
+                              <MenuItem value="ANY">Any Date</MenuItem>
                                 <MenuItem value="FUTURE">Future Only</MenuItem>
                                 <MenuItem value="PAST">Past Only</MenuItem>
-                                <MenuItem value="AGE_RANGE">Age Range</MenuItem>
-                                <MenuItem value="DATE_RANGE">Date Range</MenuItem>
+                              <MenuItem value="AGE_RANGE">Age Range</MenuItem>
+                              <MenuItem value="DATE_RANGE">Date Range</MenuItem>
                                 <MenuItem value="OFFSET">Offset</MenuItem>
-                              </TextField>
+                            </TextField>
                             )}
                           />
                         </Grid>
@@ -954,11 +1073,11 @@ export default function FieldBuilder({
                                       field.onChange(val === '' ? null : Number(val));
                                     }}
                                   />
-                                )}
-                              />
-                            </Grid>
-                          </>
-                        )}
+                          )}
+                        />
+                      </Grid>
+                    </>
+                  )}
 
                         {/* DATE_RANGE: Show minDate and maxDate */}
                         {validationType === 'DATE_RANGE' && (
@@ -1332,19 +1451,19 @@ export default function FieldBuilder({
                   {/* API Verification Configuration */}
                   {hasApiVerificationConfig && (
                     <>
-                      <Grid item xs={12}>
-                        <Typography
-                          variant="caption"
-                          fontWeight={600}
+                  <Grid item xs={12}>
+                    <Typography
+                      variant="caption"
+                      fontWeight={600}
                           color="primary"
-                        >
+                    >
                           API Verification Configuration
-                        </Typography>
-                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                      </Grid>
+                    </Typography>
+                    <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                  </Grid>
 
                       <Grid item xs={12} md={6}>
-                        <Controller
+                    <Controller
                           name={`${fieldArrayName}.${fieldIndex}.apiVerificationConfig.endpoint`}
                           control={control}
                           render={({ field }: { field: any }) => (
@@ -1387,31 +1506,31 @@ export default function FieldBuilder({
                       <Grid item xs={12} md={3}>
                         <Controller
                           name={`${fieldArrayName}.${fieldIndex}.apiVerificationConfig.linkedFieldId`}
-                          control={control}
-                          render={({ field }: { field: any }) => {
-                            const availableFields = getAllFieldIds();
-                            return (
-                              <TextField
-                                {...field}
-                                fullWidth
+                      control={control}
+                      render={({ field }: { field: any }) => {
+                        const availableFields = getAllFieldIds();
+                        return (
+                          <TextField
+                            {...field}
+                            fullWidth
                                 label="Linked Field ID (Optional)"
-                                select
-                                size="small"
+                            select
+                            size="small"
                                 helperText="Field to verify"
-                              >
-                                <MenuItem value="">
-                                  <em>None</em>
-                                </MenuItem>
-                                {availableFields.map((f: { value: string; label: string }) => (
-                                  <MenuItem key={f.value} value={f.value}>
-                                    {f.label}
-                                  </MenuItem>
-                                ))}
-                              </TextField>
-                            );
-                          }}
-                        />
-                      </Grid>
+                          >
+                            <MenuItem value="">
+                              <em>None</em>
+                            </MenuItem>
+                            {availableFields.map((f: { value: string; label: string }) => (
+                              <MenuItem key={f.value} value={f.value}>
+                                {f.label}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        );
+                      }}
+                    />
+                  </Grid>
 
                       <Grid item xs={12}>
                         <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
@@ -1550,35 +1669,35 @@ export default function FieldBuilder({
                           Input Configuration
                         </Typography>
                         <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                      </Grid>
+                  </Grid>
 
-                      <Grid item xs={12} md={4}>
-                        <Controller
+                  <Grid item xs={12} md={4}>
+                    <Controller
                           name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.dataType`}
-                          control={control}
-                          render={({ field }: { field: any }) => (
-                            <TextField
-                              {...field}
-                              fullWidth
+                      control={control}
+                      render={({ field }: { field: any }) => (
+                        <TextField
+                          {...field}
+                          fullWidth
                               label="Data Type"
-                              select
+                          select
                               required
-                              size="small"
-                            >
+                          size="small"
+                        >
                               {INPUT_DATA_TYPES.map((type) => (
                                 <MenuItem key={type.value} value={type.value}>
                                   {type.label}
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                          )}
-                        />
-                      </Grid>
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                      )}
+                    />
+                  </Grid>
 
-                      <Grid item xs={12} md={4}>
-                        <Controller
+                  <Grid item xs={12} md={4}>
+                    <Controller
                           name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.keyboard`}
-                          control={control}
+                      control={control}
                           render={({ field }: { field: any }) => (
                             <TextField
                               {...field}
@@ -1603,9 +1722,9 @@ export default function FieldBuilder({
                             name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.maxLength`}
                             control={control}
                             render={({ field }: { field: any }) => (
-                              <TextField
-                                {...field}
-                                fullWidth
+                            <TextField
+                              {...field}
+                              fullWidth
                                 label="Max Length"
                                 type="number"
                                 size="small"
@@ -1693,13 +1812,13 @@ export default function FieldBuilder({
                               name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.otp.channel`}
                               control={control}
                               render={({ field }: { field: any }) => (
-                                <TextField
-                                  {...field}
-                                  fullWidth
+                          <TextField
+                            {...field}
+                            fullWidth
                                   label="OTP Channel"
                                   select
                                   required
-                                  size="small"
+                            size="small"
                                 >
                                   {OTP_CHANNELS.map((channel) => (
                                     <MenuItem key={channel.value} value={channel.value}>
@@ -2097,138 +2216,16 @@ export default function FieldBuilder({
                       fontWeight={600}
                       color="secondary"
                     >
-                      Conditional Logic (Optional)
+                      Visibility Condition (Optional)
                     </Typography>
                     <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                  </Grid>
-
-                  <Grid item xs={12} md={4}>
-                    <Controller
-                      name={`${fieldArrayName}.${fieldIndex}.visibleWhen.field`}
+                    <FieldConditionBuilder
                       control={control}
-                      render={({ field }: { field: any }) => {
-                        const availableFields = getAllFieldIds();
-                        return (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="Visible When Field"
-                            select
-                            size="small"
-                            helperText="Select a field from this section"
-                          >
-                            <MenuItem value="">
-                              <em>None</em>
-                            </MenuItem>
-                            {availableFields.map((f: { value: string; label: string }) => (
-                              <MenuItem key={f.value} value={f.value}>
-                                {f.label}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        );
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={4}>
-                    <Controller
-                      name={`${fieldArrayName}.${fieldIndex}.visibleWhen.operator`}
-                      control={control}
-                      render={({ field }: { field: any }) => {
-                        const selectedOperator = field.value;
-                        const isExistsOperator = selectedOperator === 'EXISTS' || selectedOperator === 'NOT_EXISTS';
-                        return (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="Operator"
-                            select
-                            size="small"
-                            helperText={
-                              isExistsOperator
-                                ? 'EXISTS = any value selected (no value needed)'
-                                : 'Select comparison operator'
-                            }
-                          >
-                            {OPERATORS.map((op) => (
-                              <MenuItem key={op.value} value={op.value}>
-                                {op.label}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        );
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={4}>
-                    <Controller
-                      name={`${fieldArrayName}.${fieldIndex}.visibleWhen.value`}
-                      control={control}
-                      render={({ field }: { field: any }) => {
-                        const selectedField = watch(
-                          `${fieldArrayName}.${fieldIndex}.visibleWhen.field`
-                        );
-                        const selectedOperator = watch(
-                          `${fieldArrayName}.${fieldIndex}.visibleWhen.operator`
-                        );
-                        const isExistsOperator = selectedOperator === 'EXISTS' || selectedOperator === 'NOT_EXISTS';
-                        const allFields = watch(fieldArrayName) || [];
-                        const parentField = allFields.find((f: any) => f.id === selectedField);
-                        const isDropdown = parentField?.type === 'DROPDOWN' || parentField?.type === 'RADIO';
-                        const hasStaticData = parentField?.dataSource?.type === 'STATIC_JSON';
-                        const staticOptions = parentField?.dataSource?.staticData || [];
-
-                        // Clear value when switching to EXISTS/NOT_EXISTS
-                        if (isExistsOperator && field.value) {
-                          setTimeout(() => field.onChange(''), 0);
-                        }
-
-                        if (isExistsOperator) {
-                          return (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Value"
-                              size="small"
-                              disabled
-                              value=""
-                              helperText="Not needed for EXISTS/NOT_EXISTS"
-                            />
-                          );
-                        }
-
-                        if (isDropdown && hasStaticData && staticOptions.length > 0) {
-                          return (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Value"
-                              select
-                              size="small"
-                              helperText="Select from parent field options"
-                            >
-                              {staticOptions.map((opt: any) => (
-                                <MenuItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                          );
-                        }
-
-                        return (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="Value"
-                            size="small"
-                            placeholder="expected_value"
-                            helperText="Required for EQUALS, IN, etc."
-                          />
-                        );
-                      }}
+                      watch={watch}
+                      fieldArrayName={fieldArrayName}
+                      fieldIndex={fieldIndex}
+                      conditionType="visibleWhen"
+                      getAllFieldIds={getAllFieldIds}
                     />
                   </Grid>
 
@@ -2240,138 +2237,16 @@ export default function FieldBuilder({
                       color="secondary"
                       sx={{ mt: 2 }}
                     >
-                      Enabled When (Optional)
+                      Enabled Condition (Optional)
                     </Typography>
                     <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                  </Grid>
-
-                  <Grid item xs={12} md={4}>
-                    <Controller
-                      name={`${fieldArrayName}.${fieldIndex}.enabledWhen.field`}
+                    <FieldConditionBuilder
                       control={control}
-                      render={({ field }: { field: any }) => {
-                        const availableFields = getAllFieldIds();
-                        return (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="Enabled When Field"
-                            select
-                            size="small"
-                            helperText="Select a field from this section"
-                          >
-                            <MenuItem value="">
-                              <em>None</em>
-                            </MenuItem>
-                            {availableFields.map((f: { value: string; label: string }) => (
-                              <MenuItem key={f.value} value={f.value}>
-                                {f.label}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        );
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={4}>
-                    <Controller
-                      name={`${fieldArrayName}.${fieldIndex}.enabledWhen.operator`}
-                      control={control}
-                      render={({ field }: { field: any }) => {
-                        const selectedOperator = field.value;
-                        const isExistsOperator = selectedOperator === 'EXISTS' || selectedOperator === 'NOT_EXISTS';
-                        return (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="Operator"
-                            select
-                            size="small"
-                            helperText={
-                              isExistsOperator
-                                ? 'EXISTS = any value selected (no value needed)'
-                                : 'Select comparison operator'
-                            }
-                          >
-                            {OPERATORS.map((op) => (
-                              <MenuItem key={op.value} value={op.value}>
-                                {op.label}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        );
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={4}>
-                    <Controller
-                      name={`${fieldArrayName}.${fieldIndex}.enabledWhen.value`}
-                      control={control}
-                      render={({ field }: { field: any }) => {
-                        const selectedField = watch(
-                          `${fieldArrayName}.${fieldIndex}.enabledWhen.field`
-                        );
-                        const selectedOperator = watch(
-                          `${fieldArrayName}.${fieldIndex}.enabledWhen.operator`
-                        );
-                        const isExistsOperator = selectedOperator === 'EXISTS' || selectedOperator === 'NOT_EXISTS';
-                        const allFields = watch(fieldArrayName) || [];
-                        const parentField = allFields.find((f: any) => f.id === selectedField);
-                        const isDropdown = parentField?.type === 'DROPDOWN' || parentField?.type === 'RADIO';
-                        const hasStaticData = parentField?.dataSource?.type === 'STATIC_JSON';
-                        const staticOptions = parentField?.dataSource?.staticData || [];
-
-                        // Clear value when switching to EXISTS/NOT_EXISTS
-                        if (isExistsOperator && field.value) {
-                          setTimeout(() => field.onChange(''), 0);
-                        }
-
-                        if (isExistsOperator) {
-                          return (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Value"
-                              size="small"
-                              disabled
-                              value=""
-                              helperText="Not needed for EXISTS/NOT_EXISTS"
-                            />
-                          );
-                        }
-
-                        if (isDropdown && hasStaticData && staticOptions.length > 0) {
-                          return (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Value"
-                              select
-                              size="small"
-                              helperText="Select from parent field options"
-                            >
-                              {staticOptions.map((opt: any) => (
-                                <MenuItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                          );
-                        }
-
-                        return (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="Value"
-                            size="small"
-                            placeholder="expected_value"
-                            helperText="Required for EQUALS, IN, etc."
-                          />
-                        );
-                      }}
+                      watch={watch}
+                      fieldArrayName={fieldArrayName}
+                      fieldIndex={fieldIndex}
+                      conditionType="enabledWhen"
+                      getAllFieldIds={getAllFieldIds}
                     />
                   </Grid>
 
@@ -2383,138 +2258,16 @@ export default function FieldBuilder({
                       color="secondary"
                       sx={{ mt: 2 }}
                     >
-                      Required When (Optional)
+                      Required Condition (Optional)
                     </Typography>
                     <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                  </Grid>
-
-                  <Grid item xs={12} md={4}>
-                    <Controller
-                      name={`${fieldArrayName}.${fieldIndex}.requiredWhen.field`}
+                    <FieldConditionBuilder
                       control={control}
-                      render={({ field }: { field: any }) => {
-                        const availableFields = getAllFieldIds();
-                        return (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="Required When Field"
-                            select
-                            size="small"
-                            helperText="Select a field from this section"
-                          >
-                            <MenuItem value="">
-                              <em>None</em>
-                            </MenuItem>
-                            {availableFields.map((f: { value: string; label: string }) => (
-                              <MenuItem key={f.value} value={f.value}>
-                                {f.label}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        );
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={4}>
-                    <Controller
-                      name={`${fieldArrayName}.${fieldIndex}.requiredWhen.operator`}
-                      control={control}
-                      render={({ field }: { field: any }) => {
-                        const selectedOperator = field.value;
-                        const isExistsOperator = selectedOperator === 'EXISTS' || selectedOperator === 'NOT_EXISTS';
-                        return (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="Operator"
-                            select
-                            size="small"
-                            helperText={
-                              isExistsOperator
-                                ? 'EXISTS = any value selected (no value needed)'
-                                : 'Select comparison operator'
-                            }
-                          >
-                            {OPERATORS.map((op) => (
-                              <MenuItem key={op.value} value={op.value}>
-                                {op.label}
-                              </MenuItem>
-                            ))}
-                          </TextField>
-                        );
-                      }}
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={4}>
-                    <Controller
-                      name={`${fieldArrayName}.${fieldIndex}.requiredWhen.value`}
-                      control={control}
-                      render={({ field }: { field: any }) => {
-                        const selectedField = watch(
-                          `${fieldArrayName}.${fieldIndex}.requiredWhen.field`
-                        );
-                        const selectedOperator = watch(
-                          `${fieldArrayName}.${fieldIndex}.requiredWhen.operator`
-                        );
-                        const isExistsOperator = selectedOperator === 'EXISTS' || selectedOperator === 'NOT_EXISTS';
-                        const allFields = watch(fieldArrayName) || [];
-                        const parentField = allFields.find((f: any) => f.id === selectedField);
-                        const isDropdown = parentField?.type === 'DROPDOWN' || parentField?.type === 'RADIO';
-                        const hasStaticData = parentField?.dataSource?.type === 'STATIC_JSON';
-                        const staticOptions = parentField?.dataSource?.staticData || [];
-
-                        // Clear value when switching to EXISTS/NOT_EXISTS
-                        if (isExistsOperator && field.value) {
-                          setTimeout(() => field.onChange(''), 0);
-                        }
-
-                        if (isExistsOperator) {
-                          return (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Value"
-                              size="small"
-                              disabled
-                              value=""
-                              helperText="Not needed for EXISTS/NOT_EXISTS"
-                            />
-                          );
-                        }
-
-                        if (isDropdown && hasStaticData && staticOptions.length > 0) {
-                          return (
-                            <TextField
-                              {...field}
-                              fullWidth
-                              label="Value"
-                              select
-                              size="small"
-                              helperText="Select from parent field options"
-                            >
-                              {staticOptions.map((opt: any) => (
-                                <MenuItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                          );
-                        }
-
-                        return (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            label="Value"
-                            size="small"
-                            placeholder="expected_value"
-                            helperText="Required for EQUALS, IN, etc."
-                          />
-                        );
-                      }}
+                      watch={watch}
+                      fieldArrayName={fieldArrayName}
+                      fieldIndex={fieldIndex}
+                      conditionType="requiredWhen"
+                      getAllFieldIds={getAllFieldIds}
                     />
                   </Grid>
 
