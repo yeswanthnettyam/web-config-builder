@@ -35,11 +35,11 @@ interface FieldConditionBuilderProps {
  * Normalizes a condition to a condition group for backward compatibility.
  * Single conditions are wrapped in an AND group with one condition.
  */
-function normalizeToConditionGroup(condition: FieldCondition | undefined): ConditionGroup | null {
+function normalizeToConditionGroup(condition: FieldCondition | ConditionGroup | null | undefined): ConditionGroup | null {
   if (!condition) return null;
   
-  // If it's already a condition group, return it
-  if ('operator' in condition && (condition.operator === 'AND' || condition.operator === 'OR')) {
+  // If it's already a condition group (has 'conditions' property), return it
+  if ('conditions' in condition) {
     return condition as ConditionGroup;
   }
   
@@ -59,8 +59,10 @@ function normalizeToConditionGroup(condition: FieldCondition | undefined): Condi
  */
 function isSimpleCondition(condition: FieldCondition | undefined): boolean {
   if (!condition) return false;
+  // If it has a 'conditions' property, it's a ConditionGroup, not a simple condition
+  if ('conditions' in condition) return false;
+  // If it doesn't have a 'field' property or field is empty, it's not a valid condition
   if (!('field' in condition) || !condition.field) return false;
-  if ('operator' in condition && (condition.operator === 'AND' || condition.operator === 'OR')) return false;
   return true;
 }
 
