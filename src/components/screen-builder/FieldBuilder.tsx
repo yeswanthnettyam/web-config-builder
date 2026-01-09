@@ -109,7 +109,7 @@ function StaticDataInput({ value, onChange }: { value: any[]; onChange: (value: 
   return (
     <TextField
       fullWidth
-      label="Dropdown Options (Key:Value Pairs)"
+      label="Options (Key:Value Pairs)"
       multiline
       rows={4}
       size="small"
