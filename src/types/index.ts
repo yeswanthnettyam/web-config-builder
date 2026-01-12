@@ -738,7 +738,6 @@ export interface FlowFilters {
   status?: ConfigStatus;
 }
 
-
 // ============================================
 // BACKEND API TYPES (FROM SWAGGER)
 // ============================================

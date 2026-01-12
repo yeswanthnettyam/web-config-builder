@@ -1,24 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ScreenConfig, ConfigFilters } from '@/types';
-import { mockScreenConfigs } from '@/lib/mock-api';
+import { ScreenConfig, ConfigFilters, BackendScreenConfig } from '@/types';
+import { screenConfigApi } from '@/api';
 import toast from 'react-hot-toast';
-
-// Mock delay
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Fetch all screen configs
 export const useScreenConfigs = (filters?: ConfigFilters) => {
-  return useQuery<ScreenConfig[]>({
+  return useQuery<BackendScreenConfig[]>({
     queryKey: ['screen-configs', filters],
     queryFn: async () => {
-      await delay(800);
-      // TODO: Replace with actual API call
-      let configs = [...mockScreenConfigs];
+      let configs = await screenConfigApi.getAll();
 
       // Apply filters
       if (filters?.partnerCode) {
         configs = configs.filter(
-          (c) => c.scope.partnerCode === filters.partnerCode
+          (c) => c.partnerCode === filters.partnerCode
         );
       }
       if (filters?.screenId) {
@@ -34,17 +29,11 @@ export const useScreenConfigs = (filters?: ConfigFilters) => {
 };
 
 // Fetch single screen config
-export const useScreenConfig = (configId: string) => {
-  return useQuery<ScreenConfig>({
+export const useScreenConfig = (configId: number) => {
+  return useQuery<BackendScreenConfig>({
     queryKey: ['screen-config', configId],
     queryFn: async () => {
-      await delay(500);
-      // TODO: Replace with actual API call
-      const config = mockScreenConfigs.find((c) => c.configId === configId);
-      if (!config) {
-        throw new Error('Config not found');
-      }
-      return config;
+      return screenConfigApi.getById(configId);
     },
     enabled: !!configId,
   });
@@ -55,14 +44,12 @@ export const useCreateScreenConfig = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (config: Partial<ScreenConfig>) => {
-      await delay(1000);
-      // TODO: Replace with actual API call
-      toast.success('Screen configuration created successfully');
-      return config;
+    mutationFn: async (config: Partial<BackendScreenConfig>) => {
+      return screenConfigApi.create(config);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['screen-configs'] });
+      toast.success('Screen configuration created successfully');
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to create configuration');
@@ -79,16 +66,14 @@ export const useUpdateScreenConfig = () => {
       configId,
       config,
     }: {
-      configId: string;
-      config: Partial<ScreenConfig>;
+      configId: number;
+      config: Partial<BackendScreenConfig>;
     }) => {
-      await delay(1000);
-      // TODO: Replace with actual API call
-      toast.success('Screen configuration updated successfully');
-      return config;
+      return screenConfigApi.update(configId, config);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['screen-configs'] });
+      toast.success('Screen configuration updated successfully');
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update configuration');
@@ -96,42 +81,20 @@ export const useUpdateScreenConfig = () => {
   });
 };
 
-// Activate screen config
-export const useActivateScreenConfig = () => {
+// Clone screen config
+export const useCloneScreenConfig = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (configId: string) => {
-      await delay(800);
-      // TODO: Replace with actual API call
-      toast.success('Configuration activated successfully');
-      return configId;
+    mutationFn: async (configId: number) => {
+      return screenConfigApi.clone(configId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['screen-configs'] });
+      toast.success('Configuration cloned successfully');
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to activate configuration');
-    },
-  });
-};
-
-// Deprecate screen config
-export const useDeprecateScreenConfig = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (configId: string) => {
-      await delay(800);
-      // TODO: Replace with actual API call
-      toast.success('Configuration deprecated successfully');
-      return configId;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['screen-configs'] });
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to deprecate configuration');
+      toast.error(error.message || 'Failed to clone configuration');
     },
   });
 };
@@ -141,14 +104,12 @@ export const useDeleteScreenConfig = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (configId: string) => {
-      await delay(800);
-      // TODO: Replace with actual API call
-      toast.success('Configuration deleted successfully');
-      return configId;
+    mutationFn: async (configId: number) => {
+      return screenConfigApi.delete(configId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['screen-configs'] });
+      toast.success('Configuration deleted successfully');
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to delete configuration');

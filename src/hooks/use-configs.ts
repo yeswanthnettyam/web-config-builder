@@ -104,14 +104,14 @@ export function useConfigList(filters: ConfigListFilters = {}) {
 /**
  * Hook to fetch a single config by ID
  */
-export function useConfig(configId: string) {
+export function useConfig(configId: string | number) {
   return useQuery<ScreenConfig>({
-    queryKey: configKeys.detail(configId),
+    queryKey: configKeys.detail(String(configId)),
     queryFn: () => {
       if (USE_MOCK_API) {
-        return mockGetConfig(configId);
+        return mockGetConfig(String(configId));
       }
-      return apiClient.get<ScreenConfig>(SCREEN_CONFIG_ENDPOINTS.GET_BY_ID(configId));
+      return apiClient.get<ScreenConfig>(SCREEN_CONFIG_ENDPOINTS.GET_BY_ID(Number(configId)));
     },
     enabled: !!configId,
   });
@@ -119,15 +119,14 @@ export function useConfig(configId: string) {
 
 /**
  * Hook to fetch versions of a screen config
+ * TODO: Backend doesn't support versions endpoint yet, using mock data
  */
 export function useConfigVersions(screenId: string) {
   return useQuery<ScreenConfig[]>({
     queryKey: configKeys.versions(screenId),
     queryFn: () => {
-      if (USE_MOCK_API) {
-        return mockGetConfigVersions(screenId);
-      }
-      return apiClient.get<ScreenConfig[]>(SCREEN_CONFIG_ENDPOINTS.GET_VERSIONS(screenId));
+      // Always use mock until backend implements versions endpoint
+      return mockGetConfigVersions(screenId);
     },
     enabled: !!screenId,
   });
@@ -135,18 +134,14 @@ export function useConfigVersions(screenId: string) {
 
 /**
  * Hook to resolve a config using hierarchy
+ * TODO: Backend doesn't support resolve endpoint yet, using mock data
  */
 export function useResolvedConfig(params: ResolveConfigParams) {
   return useQuery<ResolvedConfig<ScreenConfig>>({
     queryKey: configKeys.resolved(params),
     queryFn: async () => {
-      if (USE_MOCK_API) {
-        return mockResolveConfig(params);
-      }
-      return apiClient.post<ResolvedConfig<ScreenConfig>>(
-        SCREEN_CONFIG_ENDPOINTS.RESOLVE,
-        params
-      );
+      // Always use mock until backend implements resolve endpoint
+      return mockResolveConfig(params);
     },
     enabled: !!params.screenId && !!params.scope.productCode,
     staleTime: 60 * 1000, // 1 minute
@@ -182,14 +177,14 @@ export function useUpdateConfig() {
   return useMutation<
     ScreenConfig,
     Error,
-    { configId: string; data: UpdateConfigRequest }
+    { configId: string | number; data: UpdateConfigRequest }
   >({
     mutationFn: async ({ configId, data }) => {
       if (USE_MOCK_API) {
-        const existing = await mockGetConfig(configId);
-        return mockUpdateConfig(configId, { ...existing, ...data } as any);
+        const existing = await mockGetConfig(String(configId));
+        return mockUpdateConfig(String(configId), { ...existing, ...data } as any);
       }
-      return apiClient.put<ScreenConfig>(SCREEN_CONFIG_ENDPOINTS.UPDATE(configId), data);
+      return apiClient.put<ScreenConfig>(SCREEN_CONFIG_ENDPOINTS.UPDATE(Number(configId)), data);
     },
     onSuccess: (data) => {
       // Invalidate specific config and lists
@@ -201,18 +196,15 @@ export function useUpdateConfig() {
 
 /**
  * Hook to activate a config
+ * TODO: Backend doesn't support activate endpoint yet, using mock data
  */
 export function useActivateConfig() {
   const queryClient = useQueryClient();
 
-  return useMutation<ScreenConfig, Error, { configId: string; changeReason?: string }>({
+  return useMutation<ScreenConfig, Error, { configId: string | number; changeReason?: string }>({
     mutationFn: async ({ configId, changeReason }) => {
-      if (USE_MOCK_API) {
-        return mockActivateConfig(configId, changeReason);
-      }
-      return apiClient.post<ScreenConfig>(SCREEN_CONFIG_ENDPOINTS.ACTIVATE(configId), {
-        changeReason,
-      });
+      // Always use mock until backend implements activate endpoint
+      return mockActivateConfig(String(configId), changeReason);
     },
     onSuccess: (data) => {
       // Invalidate specific config, lists, and resolved configs
@@ -225,18 +217,15 @@ export function useActivateConfig() {
 
 /**
  * Hook to deprecate a config
+ * TODO: Backend doesn't support deprecate endpoint yet, using mock data
  */
 export function useDeprecateConfig() {
   const queryClient = useQueryClient();
 
-  return useMutation<ScreenConfig, Error, { configId: string; changeReason?: string }>({
+  return useMutation<ScreenConfig, Error, { configId: string | number; changeReason?: string }>({
     mutationFn: async ({ configId, changeReason }) => {
-      if (USE_MOCK_API) {
-        return mockDeprecateConfig(configId, changeReason);
-      }
-      return apiClient.post<ScreenConfig>(SCREEN_CONFIG_ENDPOINTS.DEPRECATE(configId), {
-        changeReason,
-      });
+      // Always use mock until backend implements deprecate endpoint
+      return mockDeprecateConfig(String(configId), changeReason);
     },
     onSuccess: (data) => {
       // Invalidate specific config and lists
@@ -252,13 +241,13 @@ export function useDeprecateConfig() {
 export function useDeleteConfig() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, Error, string>({
+  return useMutation<void, Error, string | number>({
     mutationFn: async (configId) => {
       if (USE_MOCK_API) {
-        await mockDeleteConfig(configId);
+        await mockDeleteConfig(String(configId));
         return;
       }
-      return apiClient.delete<void>(SCREEN_CONFIG_ENDPOINTS.DELETE(configId));
+      return apiClient.delete<void>(SCREEN_CONFIG_ENDPOINTS.DELETE(Number(configId)));
     },
     onSuccess: () => {
       // Invalidate lists

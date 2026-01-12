@@ -62,19 +62,15 @@ import SortableSubsection from '@/components/screen-builder/SortableSubsection';
 import SortableField from '@/components/screen-builder/SortableField';
 import { usePartners, useProducts, useBranches } from '@/hooks/use-master-data';
 import { ConfigScopeSelector } from '@/components/config/ConfigScopeSelector';
-import { useCreateScreenConfig } from '@/hooks/use-screen-configs';
 import toast from 'react-hot-toast';
 import {
   LAYOUT_TYPES,
   FIELD_TYPES,
   HTTP_METHODS,
 } from '@/lib/constants';
-import { ScreenConfig, Section, SubSection, Field } from '@/types';
-import {
-  saveScreenConfig,
-  getScreenConfigById,
-  getScreenConfigByScreenId,
-} from '@/lib/cache-storage';
+import { ScreenConfig, Section, SubSection, Field, BackendScreenConfig } from '@/types';
+import { screenConfigApi } from '@/api';
+import { AxiosError } from 'axios';
 
 // Validation schema
 const screenConfigSchema = z.object({
@@ -139,7 +135,6 @@ function NewScreenConfigPageContent() {
   const isCloneMode = !!cloneId;
   
   const { data: partners } = usePartners();
-  const createConfig = useCreateScreenConfig();
   const [activeTab, setActiveTab] = useState(0);
   const [isLoading, setIsLoading] = useState(isEditMode || isCloneMode);
   const [completeConfig, setCompleteConfig] = useState<any>(null);
@@ -225,58 +220,69 @@ function NewScreenConfigPageContent() {
     const configIdToLoad = isEditMode ? editId : isCloneMode ? cloneId : null;
     
     if (configIdToLoad) {
-      const existingConfig = getScreenConfigById(configIdToLoad);
-      if (existingConfig) {
-        console.log(isCloneMode ? '📋 Loading config for cloning:' : '📝 Loading existing config for edit:', existingConfig);
+      const loadConfig = async () => {
+        try {
+          const existingConfig = await screenConfigApi.getById(Number(configIdToLoad));
+          console.log(isCloneMode ? '📋 Loading config for cloning:' : '📝 Loading existing config for edit:', existingConfig);
+          
+          // Parse uiConfig (it's stored as JSON object in backend)
+          const uiConfig = existingConfig.uiConfig as any;
+          
+          // Populate form with existing data
+          // For clone mode, generate new IDs
+          setValue('screenId', isCloneMode ? `${existingConfig.screenId}_copy_${Date.now()}` : existingConfig.screenId);
+          setValue('screenName', isCloneMode ? `${uiConfig.title} (Copy)` : uiConfig.title || existingConfig.screenId);
+          setValue('title', uiConfig.title || existingConfig.screenId);
+          
+          // Set scope from backend fields
+          const scope = {
+            type: (existingConfig.productCode && existingConfig.partnerCode && existingConfig.branchCode) ? 'BRANCH' :
+                  (existingConfig.productCode && existingConfig.partnerCode) ? 'PARTNER' : 'PRODUCT' as any,
+            productCode: existingConfig.productCode || '',
+            partnerCode: existingConfig.partnerCode || '',
+            branchCode: existingConfig.branchCode || '',
+          };
+          setValue('scope', scope);
+          
+          // Handle layout: can be string (legacy) or object (new format)
+          const existingLayout = uiConfig.ui?.layout;
+          if (typeof existingLayout === 'string') {
+            // Legacy format: layout is just a string
+            setValue('layout', existingLayout);
+            setValue('allowBackNavigation', true); // Default to true for legacy configs
+          } else if (existingLayout && typeof existingLayout === 'object') {
+            // New format: layout is an object with type and allowBackNavigation
+            setValue('layout', existingLayout.type || 'FORM');
+            setValue('allowBackNavigation', existingLayout.allowBackNavigation ?? true);
+          } else {
+            setValue('layout', 'FORM');
+            setValue('allowBackNavigation', true);
+          }
         
-        // Populate form with existing data
-        // For clone mode, generate new IDs
-        setValue('screenId', isCloneMode ? `${existingConfig.screenId}_copy_${Date.now()}` : existingConfig.screenId);
-        setValue('screenName', isCloneMode ? `${existingConfig.screenName} (Copy)` : existingConfig.screenName);
-        setValue('title', existingConfig.config.title);
-        // Handle both old format (partnerCode/scopeType) and new format (scope)
-        const existingScope = existingConfig.config.scope || {
-          type: existingConfig.config.scope?.type || (existingConfig.config.scope?.partnerCode ? 'PARTNER' : 'PRODUCT'),
-          productCode: existingConfig.config.scope?.productCode || '',
-          partnerCode: existingConfig.config.scope?.partnerCode || '',
-          branchCode: existingConfig.config.scope?.branchCode || '',
-        };
-        setValue('scope', existingScope);
-        
-        // Handle layout: can be string (legacy) or object (new format)
-        const existingLayout = existingConfig.config.ui?.layout;
-        if (typeof existingLayout === 'string') {
-          // Legacy format: layout is just a string
-          setValue('layout', existingLayout);
-          setValue('allowBackNavigation', true); // Default to true for legacy configs
-        } else if (existingLayout && typeof existingLayout === 'object') {
-          // New format: layout is an object with type and allowBackNavigation
-          setValue('layout', existingLayout.type || 'FORM');
-          setValue('allowBackNavigation', existingLayout.allowBackNavigation ?? true);
-        } else {
-          setValue('layout', 'FORM');
-          setValue('allowBackNavigation', true);
+          // Load sections
+          if (uiConfig.ui?.sections) {
+            setValue('sections', uiConfig.ui.sections.map((section: any) => ({
+              ...section,
+              hasSubSections: !!section.subSections,
+            })));
+          }
+          
+          // Load actions
+          if (uiConfig.ui?.actions) {
+            setValue('actions', uiConfig.ui.actions);
+          }
+          
+          toast.success(isCloneMode ? 'Configuration loaded for cloning' : 'Configuration loaded for editing');
+          setIsLoading(false);
+        } catch (error) {
+          console.error('Failed to load config:', error);
+          toast.error('Failed to load configuration');
+          router.push('/screen-builder');
+          setIsLoading(false);
         }
-        
-        // Load sections
-        if (existingConfig.config.ui?.sections) {
-          setValue('sections', existingConfig.config.ui.sections.map((section: any) => ({
-            ...section,
-            hasSubSections: !!section.subSections,
-          })));
-        }
-        
-        // Load actions
-        if (existingConfig.config.ui?.actions) {
-          setValue('actions', existingConfig.config.ui.actions);
-        }
-        
-        toast.success(isCloneMode ? 'Configuration loaded for cloning' : 'Configuration loaded for editing');
-      } else {
-        toast.error('Configuration not found');
-        router.push('/screen-builder');
-      }
-      setIsLoading(false);
+      };
+      
+      loadConfig();
     }
   }, [isEditMode, isCloneMode, editId, cloneId, setValue, router]);
 
@@ -322,8 +328,8 @@ function NewScreenConfigPageContent() {
         allowBackNavigation: formData.allowBackNavigation ?? true,
       };
 
-      // Build complete config including validations
-      let complete: any = {
+      // Build complete config for preview
+      const complete: any = {
         screenId: formData.screenId,
         screenName: formData.screenName,
         title: formData.title,
@@ -332,14 +338,6 @@ function NewScreenConfigPageContent() {
         sections: normalizedSections,
         actions: formData.actions,
       };
-      
-      // If screen exists in cache, load its validations
-      if (formData.screenId) {
-        const savedConfig = getScreenConfigByScreenId(formData.screenId as string);
-        if (savedConfig && savedConfig.config.validations) {
-          complete.validations = savedConfig.config.validations;
-        }
-      }
       
       setCompleteConfig(complete);
     });
@@ -756,52 +754,47 @@ function NewScreenConfigPageContent() {
         }
       });
 
-      // Get existing config to preserve validations
-      const existingConfig = isEditMode && !isCloneMode ? getScreenConfigById(editId) : null;
-      
       // Build layout config in the required format: { type: LayoutType, allowBackNavigation: boolean }
-      // Always save as object format to match requirement: ui.layout.allowBackNavigation
-      // Default value is true if missing (handled in form defaults)
       const layoutConfig = {
         type: data.layout as any,
         allowBackNavigation: data.allowBackNavigation ?? true,
       };
 
-      const config: Partial<ScreenConfig> = {
+      // Build uiConfig for backend
+      const uiConfig = {
         screenId: data.screenId,
         title: data.title,
-        version: 1,
-        status: 'DRAFT',
         scope: data.scope,
         ui: {
           layout: layoutConfig,
           sections: sections,
           actions: data.actions as any[],
         },
-        createdAt: existingConfig?.config?.createdAt || existingConfig?.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: existingConfig?.config?.createdBy || 'current_user',
+      };
+
+      // Prepare backend payload
+      const backendPayload: Partial<BackendScreenConfig> = {
+        screenId: data.screenId,
+        productCode: data.scope.productCode,
+        partnerCode: data.scope.partnerCode || undefined,
+        branchCode: data.scope.branchCode || undefined,
+        status: 'DRAFT',
+        uiConfig: uiConfig,
+        createdBy: 'current_user',
         updatedBy: 'current_user',
       };
 
-      // Preserve existing validations if they exist (add to config object for cache storage)
-      const configWithValidations = {
-        ...config,
-        ...(existingConfig?.config?.validations && { validations: existingConfig.config.validations }),
-      };
+      // Save to backend API
+      let savedConfig: BackendScreenConfig;
+      if (isEditMode && !isCloneMode) {
+        // Update existing config
+        savedConfig = await screenConfigApi.update(Number(editId), backendPayload);
+      } else {
+        // Create new config (both for new and clone mode)
+        savedConfig = await screenConfigApi.create(backendPayload);
+      }
 
-      // Save to cache storage (temporary until backend is ready)
-      // For clone mode, always create a new ID (don't use editId)
-      const savedConfig = saveScreenConfig({
-        id: (isEditMode && !isCloneMode) ? editId : `screen_${Date.now()}`,
-        screenId: data.screenId,
-        screenName: data.screenName,
-        version: existingConfig?.version || '1.0',
-        status: 'DRAFT',
-        config: configWithValidations,
-      });
-
-      console.log('💾 Saved to cache:', savedConfig);
+      console.log('💾 Saved to backend:', savedConfig);
       
       toast.success(
         isEditMode && !isCloneMode
@@ -813,8 +806,18 @@ function NewScreenConfigPageContent() {
       
       router.push('/screen-builder');
     } catch (error) {
-      console.error('Failed to create config:', error);
-      toast.error('Failed to save configuration. Please try again.');
+      console.error('Failed to save config:', error);
+      const axiosError = error as AxiosError<{ message: string; fieldErrors?: Array<{ fieldId: string; message: string }> }>;
+      const errorMessage = axiosError.response?.data?.message || 'Failed to save configuration. Please try again.';
+      toast.error(errorMessage);
+      
+      // Handle field-level errors if present
+      const fieldErrors = axiosError.response?.data?.fieldErrors;
+      if (fieldErrors && fieldErrors.length > 0) {
+        fieldErrors.forEach(fe => {
+          toast.error(`${fe.fieldId}: ${fe.message}`);
+        });
+      }
     }
   };
 
