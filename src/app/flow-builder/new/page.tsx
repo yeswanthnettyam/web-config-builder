@@ -40,11 +40,12 @@ import RightPanel from '@/components/flow-builder/RightPanel';
 import NodeConfigPanel from '@/components/flow-builder/NodeConfigPanel';
 import EdgeConfigPanel from '@/components/flow-builder/EdgeConfigPanel';
 import ValidationBanner from '@/components/flow-builder/ValidationBanner';
-import { FlowScreenConfig, NavigationCondition, FlowConfig, FlowValidationResult, BackendFlowConfig } from '@/types';
+import { FlowScreenConfig, NavigationCondition, FlowConfig, FlowValidationResult, BackendFlowConfig, DashboardMeta } from '@/types';
 import { validateFlow } from '@/lib/flow-validation';
 import { flowConfigApi } from '@/api/flowConfig.api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import DashboardMetaEditor from '@/components/flow-builder/DashboardMetaEditor';
 
 // Dynamically import ReactFlow to avoid SSR issues
 const ReactFlow = dynamic(
@@ -143,6 +144,7 @@ function NewFlowPageContent() {
   const [flowStatus, setFlowStatus] = useState<'DRAFT' | 'ACTIVE'>('DRAFT');
   const [validationResult, setValidationResult] = useState<FlowValidationResult | null>(null);
   const [isLoadingFlow, setIsLoadingFlow] = useState(false);
+  const [dashboardMeta, setDashboardMeta] = useState<DashboardMeta | undefined>(undefined);
   
   // Mutations for flow operations
   const createFlowMutation = useMutation({
@@ -236,6 +238,12 @@ function NewFlowPageContent() {
       
       // Set flow status (only DRAFT or ACTIVE for editing)
       setFlowStatus(existingFlow.status === 'DEPRECATED' ? 'DRAFT' : existingFlow.status);
+      
+      // Load dashboard metadata if present
+      if (existingFlow.dashboardMeta) {
+        setDashboardMeta(existingFlow.dashboardMeta);
+        console.log('📱 Loaded dashboard metadata:', existingFlow.dashboardMeta);
+      }
       
       // Populate screen configs from the flow
       const configMap = new Map<string, FlowScreenConfig>();
@@ -1018,6 +1026,7 @@ function NewFlowPageContent() {
       partnerCode: data.scope.partnerCode,
       status: flowStatus,
       flowDefinition: flowConfig,
+      dashboardMeta: dashboardMeta, // Include dashboard metadata (optional, backward compatible)
     };
 
     // Update or create based on whether we're editing
@@ -1233,6 +1242,12 @@ function NewFlowPageContent() {
               </Grid>
             </CardContent>
           </Card>
+
+          {/* Dashboard Appearance Configuration */}
+          <DashboardMetaEditor
+            value={dashboardMeta}
+            onChange={setDashboardMeta}
+          />
 
           {/* Visual Flow Builder */}
           <Card sx={{ marginBottom: 3 }}>

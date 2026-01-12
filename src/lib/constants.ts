@@ -201,6 +201,32 @@ export const A11Y_MESSAGES = {
   SUCCESS: 'Action successful',
 } as const;
 
+// Dashboard Flow Icons
+export const DASHBOARD_FLOW_ICONS = [
+  { value: 'APPLICANT_ONBOARDING', label: '👤 Applicant Onboarding' },
+  { value: 'CREDIT_CHECK', label: '💳 Credit Check' },
+  { value: 'GROUP_CREATION', label: '👥 Group Creation' },
+  { value: 'KYC', label: '🔍 KYC Verification' },
+  { value: 'FIELD_VERIFICATION', label: '📍 Field Verification' },
+  { value: 'ELIGIBILITY', label: '✅ Eligibility Check' },
+  { value: 'DOCUMENT_SIGNING', label: '📝 Document Signing' },
+  { value: 'PAYMENT', label: '💰 Payment' },
+  { value: 'LOAN_APPLICATION', label: '📄 Loan Application' },
+  { value: 'BUSINESS_DETAILS', label: '🏢 Business Details' },
+  { value: 'FINANCIAL_INFO', label: '📊 Financial Information' },
+  { value: 'PHOTO_CAPTURE', label: '📸 Photo Capture' },
+  { value: 'LOCATION', label: '🗺️ Location' },
+  { value: 'AGREEMENT', label: '📋 Agreement' },
+  { value: 'COMPLETION', label: '🎉 Completion' },
+] as const;
+
+// Default Dashboard Colors
+export const DEFAULT_DASHBOARD_COLORS = {
+  BACKGROUND: '#0B2F70',
+  TEXT: '#FFFFFF',
+  ICON: '#00B2FF',
+} as const;
+
 // Feature Flags (for future use)
 export const FEATURES = {
   ENABLE_FLOW_BUILDER: true,

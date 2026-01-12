@@ -626,6 +626,22 @@ export interface ScreenFlowNode {
   maxRetries?: number;
 }
 
+/**
+ * Dashboard appearance metadata for Flow tiles in Home screen.
+ * This metadata is ONLY used for Dashboard/Home UI rendering.
+ * It does NOT affect flow navigation logic or runtime decisioning.
+ */
+export interface DashboardMeta {
+  title: string;
+  description: string;
+  icon: string; // Icon key (e.g., 'APPLICANT_ONBOARDING', 'CREDIT_CHECK')
+  ui: {
+    backgroundColor: string; // HEX color (e.g., '#0B2F70')
+    textColor: string;       // HEX color (e.g., '#FFFFFF')
+    iconColor: string;       // HEX color (e.g., '#00B2FF')
+  };
+}
+
 export interface FlowConfig {
   flowId: string;
   version: number;
@@ -633,6 +649,12 @@ export interface FlowConfig {
   scope: ConfigScope; // PRODUCT or PARTNER only (BRANCH not allowed for flows)
   startScreen: string;
   screens: ScreenFlowNode[];
+  /**
+   * OPTIONAL: Dashboard appearance metadata for Home screen tiles.
+   * Used ONLY for UI rendering, not for flow logic.
+   * Backward compatible: flows without dashboardMeta continue to work.
+   */
+  dashboardMeta?: DashboardMeta;
   createdAt: string;
   updatedAt: string;
   createdBy: string;
@@ -773,6 +795,11 @@ export interface BackendFlowConfig {
   version?: number;
   status: 'DRAFT' | 'ACTIVE' | 'DEPRECATED';
   flowDefinition: Record<string, any>;
+  /**
+   * OPTIONAL: Dashboard metadata for Home screen rendering.
+   * Backend persists this as part of FlowConfig JSON.
+   */
+  dashboardMeta?: DashboardMeta;
   createdBy?: string;
   updatedBy?: string;
   createdAt?: string;
