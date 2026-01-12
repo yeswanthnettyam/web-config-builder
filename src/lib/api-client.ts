@@ -17,15 +17,20 @@ class ApiClient {
   }
 
   private setupInterceptors() {
-    // Request interceptor - attach token
+    // Request interceptor - attach token (TEMPORARILY DISABLED FOR TESTING)
     this.client.interceptors.request.use(
       (config) => {
+        // TODO: Re-enable authentication when backend requires it
+        // Authentication is currently disabled for testing purposes
+        // Uncomment the following block to enable JWT token authentication:
+        /*
         if (typeof window !== 'undefined') {
           const token = localStorage.getItem(TOKEN_KEY);
           if (token) {
             config.headers.Authorization = `Bearer ${token}`;
           }
         }
+        */
         return config;
       },
       (error) => {
@@ -37,6 +42,8 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
+        // TODO: Re-enable 401 redirect when authentication is enabled
+        /*
         if (error.response?.status === 401) {
           // Token expired or invalid
           if (typeof window !== 'undefined') {
@@ -44,6 +51,7 @@ class ApiClient {
             window.location.href = '/login';
           }
         }
+        */
         return Promise.reject(error);
       }
     );

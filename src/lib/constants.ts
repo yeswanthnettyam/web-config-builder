@@ -4,7 +4,7 @@ export const BRAND_PRIMARY_COLOR = '#0B2F70';
 export const BRAND_ACCENT_COLOR = '#00B2FF';
 
 // API Configuration
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api/v1';
 export const API_TIMEOUT = 30000; // 30 seconds
 
 // Authentication

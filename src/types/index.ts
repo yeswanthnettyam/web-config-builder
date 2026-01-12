@@ -738,3 +738,119 @@ export interface FlowFilters {
   status?: ConfigStatus;
 }
 
+
+// ============================================
+// BACKEND API TYPES (FROM SWAGGER)
+// ============================================
+
+/**
+ * Backend ScreenConfig entity - represents the API response/request format
+ */
+export interface BackendScreenConfig {
+  configId?: number;
+  screenId: string;
+  productCode?: string;
+  partnerCode?: string;
+  branchCode?: string;
+  version?: number;
+  status: 'DRAFT' | 'ACTIVE' | 'DEPRECATED';
+  uiConfig: Record<string, any>;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  lockVersion?: number;
+}
+
+/**
+ * Backend FlowConfig entity
+ */
+export interface BackendFlowConfig {
+  configId?: number;
+  flowId: string;
+  productCode?: string;
+  partnerCode?: string;
+  branchCode?: string;
+  version?: number;
+  status: 'DRAFT' | 'ACTIVE' | 'DEPRECATED';
+  flowDefinition: Record<string, any>;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  lockVersion?: number;
+}
+
+/**
+ * Backend ValidationConfig entity
+ */
+export interface BackendValidationConfig {
+  configId?: number;
+  screenId: string;
+  productCode?: string;
+  partnerCode?: string;
+  branchCode?: string;
+  version?: number;
+  status: 'DRAFT' | 'ACTIVE' | 'DEPRECATED';
+  validationRules: Record<string, any>;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  lockVersion?: number;
+}
+
+/**
+ * Backend FieldMappingConfig entity
+ */
+export interface BackendFieldMappingConfig {
+  configId?: number;
+  screenId: string;
+  productCode?: string;
+  partnerCode?: string;
+  branchCode?: string;
+  version?: number;
+  status: 'DRAFT' | 'ACTIVE' | 'DEPRECATED';
+  mappings: Record<string, any>;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  lockVersion?: number;
+}
+
+/**
+ * Runtime API Request - Next Screen
+ */
+export interface NextScreenRequest {
+  applicationId?: number;
+  currentScreenId: string;
+  formData: Record<string, any>;
+  productCode: string;
+  partnerCode: string;
+  branchCode?: string;
+}
+
+/**
+ * Runtime API Response - Next Screen
+ */
+export interface BackendNextScreenResponse {
+  applicationId?: number;
+  nextScreenId: string;
+  screenConfig: Record<string, any>;
+  status: string;
+}
+
+/**
+ * Standard Backend Error Response
+ */
+export interface BackendErrorResponse {
+  errorCode?: string;
+  message: string;
+  fieldErrors?: Array<{
+    fieldId: string;
+    message: string;
+  }>;
+  timestamp?: string;
+  path?: string;
+}

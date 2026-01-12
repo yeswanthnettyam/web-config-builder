@@ -22,6 +22,8 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import {
   Add,
@@ -44,17 +46,11 @@ import EmptyState from '@/components/shared/EmptyState';
 import StatusChip from '@/components/shared/StatusChip';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import JsonViewer from '@/components/shared/JsonViewer';
-import { useScreenConfigs, useDeleteScreenConfig } from '@/hooks/use-screen-configs';
 import { usePartners, useScreens } from '@/hooks/use-master-data';
-import { ScreenConfig } from '@/types';
+import { BackendScreenConfig } from '@/types';
 import { formatDateTime } from '@/lib/utils';
-import {
-  getAllScreenConfigs,
-  deleteScreenConfig as deleteCachedConfig,
-  updateScreenConfigStatus,
-  type CachedScreenConfig,
-} from '@/lib/cache-storage';
-import toast from 'react-hot-toast';
+import { screenConfigApi } from '@/api';
+import { AxiosError } from 'axios';
 
 export default function ScreenBuilderPage() {
   const router = useRouter();
@@ -64,37 +60,57 @@ export default function ScreenBuilderPage() {
     status: '',
   });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedConfig, setSelectedConfig] = useState<CachedScreenConfig | null>(null);
+  const [selectedConfig, setSelectedConfig] = useState<BackendScreenConfig | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [configs, setConfigs] = useState<CachedScreenConfig[]>([]);
+  const [configs, setConfigs] = useState<BackendScreenConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   const { data: partners } = usePartners();
   const { data: screens } = useScreens();
 
-  // Load configs from cache
-  const loadConfigs = useCallback(() => {
+  // Load configs from backend API
+  const loadConfigs = useCallback(async () => {
     setIsLoading(true);
-    const cachedConfigs = getAllScreenConfigs();
+    setError(null);
     
-    // Apply filters
-    let filtered = cachedConfigs;
-    
-    if (filters.partnerCode) {
-      filtered = filtered.filter(c => c.config.scope?.partnerCode === filters.partnerCode);
+    try {
+      const allConfigs = await screenConfigApi.getAll();
+      
+      // Apply filters
+      let filtered = allConfigs;
+      
+      if (filters.partnerCode) {
+        filtered = filtered.filter(c => c.partnerCode === filters.partnerCode);
+      }
+      
+      if (filters.screenId) {
+        filtered = filtered.filter(c => c.screenId === filters.screenId);
+      }
+      
+      if (filters.status) {
+        filtered = filtered.filter(c => c.status === filters.status);
+      }
+      
+      setConfigs(filtered);
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message: string }>;
+      const errorMessage = axiosError.response?.data?.message || 'Failed to load configurations';
+      setError(errorMessage);
+      setSnackbar({
+        open: true,
+        message: errorMessage,
+        severity: 'error',
+      });
+    } finally {
+      setIsLoading(false);
     }
-    
-    if (filters.screenId) {
-      filtered = filtered.filter(c => c.screenId === filters.screenId);
-    }
-    
-    if (filters.status) {
-      filtered = filtered.filter(c => c.status === filters.status);
-    }
-    
-    setConfigs(filtered);
-    setIsLoading(false);
   }, [filters]);
 
   useEffect(() => {
@@ -115,7 +131,7 @@ export default function ScreenBuilderPage() {
 
   const handleMenuOpen = (
     event: React.MouseEvent<HTMLElement>,
-    config: CachedScreenConfig
+    config: BackendScreenConfig
   ) => {
     setAnchorEl(event.currentTarget);
     setSelectedConfig(config);
@@ -131,15 +147,32 @@ export default function ScreenBuilderPage() {
   };
 
   const handleEdit = () => {
-    if (selectedConfig) {
-      router.push(`/screen-builder/new?id=${selectedConfig.id}`);
+    if (selectedConfig && selectedConfig.configId) {
+      router.push(`/screen-builder/new?id=${selectedConfig.configId}`);
     }
     handleMenuClose();
   };
 
-  const handleClone = () => {
-    if (selectedConfig) {
-      router.push(`/screen-builder/new?clone=${selectedConfig.id}`);
+  const handleClone = async () => {
+    if (selectedConfig && selectedConfig.configId) {
+      try {
+        const clonedConfig = await screenConfigApi.clone(selectedConfig.configId);
+        setSnackbar({
+          open: true,
+          message: `Configuration cloned successfully (ID: ${clonedConfig.configId})`,
+          severity: 'success',
+        });
+        handleMenuClose();
+        loadConfigs(); // Reload the list
+      } catch (err) {
+        const axiosError = err as AxiosError<{ message: string }>;
+        const errorMessage = axiosError.response?.data?.message || 'Failed to clone configuration';
+        setSnackbar({
+          open: true,
+          message: errorMessage,
+          severity: 'error',
+        });
+      }
     }
     handleMenuClose();
   };
@@ -149,22 +182,27 @@ export default function ScreenBuilderPage() {
     setDeleteDialogOpen(true);
   };
 
-  const handleConfirmDelete = () => {
-    if (selectedConfig) {
-      deleteCachedConfig(selectedConfig.id);
-      toast.success('Configuration deleted successfully');
-      setDeleteDialogOpen(false);
-      setSelectedConfig(null);
-      loadConfigs(); // Reload the list
-    }
-  };
-
-  const handleActivate = () => {
-    if (selectedConfig) {
-      updateScreenConfigStatus(selectedConfig.id, 'ACTIVE');
-      toast.success('Configuration activated successfully');
-      handleMenuClose();
-      loadConfigs();
+  const handleConfirmDelete = async () => {
+    if (selectedConfig && selectedConfig.configId) {
+      try {
+        await screenConfigApi.delete(selectedConfig.configId);
+        setSnackbar({
+          open: true,
+          message: 'Configuration deleted successfully',
+          severity: 'success',
+        });
+        setDeleteDialogOpen(false);
+        setSelectedConfig(null);
+        loadConfigs(); // Reload the list
+      } catch (err) {
+        const axiosError = err as AxiosError<{ message: string }>;
+        const errorMessage = axiosError.response?.data?.message || 'Failed to delete configuration';
+        setSnackbar({
+          open: true,
+          message: errorMessage,
+          severity: 'error',
+        });
+      }
     }
   };
 
@@ -235,6 +273,11 @@ export default function ScreenBuilderPage() {
         <Card>
           {isLoading ? (
             <LoadingState message="Loading screen configurations..." />
+          ) : error ? (
+            <ErrorState
+              error={error}
+              onRetry={loadConfigs}
+            />
           ) : !configs || configs.length === 0 ? (
             <EmptyState
               title="No configurations found"
@@ -249,10 +292,11 @@ export default function ScreenBuilderPage() {
               <Table aria-label="screen configurations table">
                 <TableHead>
                   <TableRow>
+                    <TableCell>Config ID</TableCell>
                     <TableCell>Screen ID</TableCell>
-                    <TableCell>Title</TableCell>
+                    <TableCell>Product</TableCell>
                     <TableCell>Partner</TableCell>
-                    <TableCell>Scope</TableCell>
+                    <TableCell>Branch</TableCell>
                     <TableCell>Version</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Last Updated</TableCell>
@@ -262,26 +306,21 @@ export default function ScreenBuilderPage() {
                 <TableBody>
                   {configs.map((config) => (
                     <TableRow
-                      key={config.id}
+                      key={config.configId}
                       hover
                       sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                     >
+                      <TableCell>{config.configId}</TableCell>
                       <TableCell>{config.screenId}</TableCell>
-                      <TableCell>{config.screenName}</TableCell>
-                      <TableCell>{config.config.scope?.partnerCode || '-'}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={config.config.scope?.type || 'PARTNER'}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell>v{config.version}</TableCell>
+                      <TableCell>{config.productCode || '-'}</TableCell>
+                      <TableCell>{config.partnerCode || '-'}</TableCell>
+                      <TableCell>{config.branchCode || '-'}</TableCell>
+                      <TableCell>v{config.version || 1}</TableCell>
                       <TableCell>
                         <StatusChip status={config.status} />
                       </TableCell>
                       <TableCell>
-                        {formatDateTime(config.updatedAt)}
+                        {config.updatedAt ? formatDateTime(config.updatedAt) : '-'}
                       </TableCell>
                       <TableCell align="right">
                         <Tooltip title="More actions">
@@ -329,14 +368,6 @@ export default function ScreenBuilderPage() {
             <ListItemText>Clone</ListItemText>
           </MenuItem>
           {selectedConfig?.status === 'DRAFT' && (
-            <MenuItem onClick={handleActivate}>
-              <ListItemIcon>
-                <CheckCircle fontSize="small" color="success" />
-              </ListItemIcon>
-              <ListItemText>Activate</ListItemText>
-            </MenuItem>
-          )}
-          {selectedConfig?.status === 'DRAFT' && (
             <MenuItem onClick={handleDelete}>
               <ListItemIcon>
                 <Delete fontSize="small" color="error" />
@@ -365,12 +396,12 @@ export default function ScreenBuilderPage() {
           fullWidth
         >
           <DialogTitle>
-            View Configuration - {selectedConfig?.screenName}
+            View Configuration - {selectedConfig?.screenId}
           </DialogTitle>
           <DialogContent>
             {selectedConfig && (
               <JsonViewer
-                data={selectedConfig.config}
+                data={selectedConfig.uiConfig}
                 title="Screen Configuration"
                 filename={`${selectedConfig.screenId}_config.json`}
               />
@@ -382,6 +413,22 @@ export default function ScreenBuilderPage() {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Snackbar for success/error messages */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            severity={snackbar.severity}
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </DashboardLayout>
     </ProtectedRoute>
   );

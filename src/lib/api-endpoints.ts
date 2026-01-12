@@ -6,52 +6,44 @@ export const AUTH_ENDPOINTS = {
   ME: '/auth/me',
 };
 
-// Screen Config APIs
+// Screen Config APIs (Updated to match backend Swagger)
 export const SCREEN_CONFIG_ENDPOINTS = {
   LIST: '/configs/screens',
-  GET_BY_SCREEN: (screenId: string) => `/configs/screens/${screenId}`,
-  GET_VERSIONS: (screenId: string) => `/configs/screens/${screenId}/versions`,
-  GET_BY_ID: (configId: string) => `/configs/screens/${configId}`,
+  GET_BY_ID: (configId: number) => `/configs/screens/${configId}`,
   CREATE: '/configs/screens',
-  UPDATE: (configId: string) => `/configs/screens/${configId}`,
-  ACTIVATE: (configId: string) => `/configs/screens/${configId}/activate`,
-  DEPRECATE: (configId: string) => `/configs/screens/${configId}/deprecate`,
-  DELETE: (configId: string) => `/configs/screens/${configId}`,
-  RESOLVE: '/configs/screens/resolve',
+  UPDATE: (configId: number) => `/configs/screens/${configId}`,
+  DELETE: (configId: number) => `/configs/screens/${configId}`,
+  CLONE: (configId: number) => `/configs/screens/${configId}/clone`,
 };
 
-// Validation Config APIs
+// Validation Config APIs (Updated to match backend Swagger)
 export const VALIDATION_CONFIG_ENDPOINTS = {
-  GET_BY_SCREEN: (screenId: string) => `/configs/validations/${screenId}`,
-  GET_BY_ID: (configId: string) => `/configs/validations/${configId}`,
+  LIST: '/configs/validations',
+  GET_BY_ID: (configId: number) => `/configs/validations/${configId}`,
   CREATE: '/configs/validations',
-  UPDATE: (configId: string) => `/configs/validations/${configId}`,
-  ACTIVATE: (configId: string) => `/configs/validations/${configId}/activate`,
-  DEPRECATE: (configId: string) => `/configs/validations/${configId}/deprecate`,
+  UPDATE: (configId: number) => `/configs/validations/${configId}`,
+  DELETE: (configId: number) => `/configs/validations/${configId}`,
+  CLONE: (configId: number) => `/configs/validations/${configId}/clone`,
 };
 
-// Flow Config APIs
+// Flow Config APIs (Updated to match backend Swagger)
 export const FLOW_CONFIG_ENDPOINTS = {
   LIST: '/configs/flows',
-  GET_BY_ID: (flowId: string) => `/configs/flows/${flowId}`,
-  GET_VERSIONS: (flowId: string) => `/configs/flows/${flowId}/versions`,
+  GET_BY_ID: (configId: number) => `/configs/flows/${configId}`,
   CREATE: '/configs/flows',
-  UPDATE: (flowId: string) => `/configs/flows/${flowId}`,
-  ACTIVATE: (flowId: string) => `/configs/flows/${flowId}/activate`,
-  DEPRECATE: (flowId: string) => `/configs/flows/${flowId}/deprecate`,
-  DELETE: (flowId: string) => `/configs/flows/${flowId}`,
+  UPDATE: (configId: number) => `/configs/flows/${configId}`,
+  DELETE: (configId: number) => `/configs/flows/${configId}`,
+  CLONE: (configId: number) => `/configs/flows/${configId}/clone`,
 };
 
-// Field Mapping APIs
+// Field Mapping APIs (Updated to match backend Swagger)
 export const MAPPING_ENDPOINTS = {
-  LIST: '/mappings',
-  GET_BY_SCREEN: (screenId: string) => `/mappings/screen/${screenId}`,
-  GET_BY_ID: (mappingId: string) => `/mappings/${mappingId}`,
-  CREATE: '/mappings',
-  UPDATE: (mappingId: string) => `/mappings/${mappingId}`,
-  DELETE: (mappingId: string) => `/mappings/${mappingId}`,
-  ACTIVATE: (mappingId: string) => `/mappings/${mappingId}/activate`,
-  DEPRECATE: (mappingId: string) => `/mappings/${mappingId}/deprecate`,
+  LIST: '/configs/field-mappings',
+  GET_BY_ID: (configId: number) => `/configs/field-mappings/${configId}`,
+  CREATE: '/configs/field-mappings',
+  UPDATE: (configId: number) => `/configs/field-mappings/${configId}`,
+  DELETE: (configId: number) => `/configs/field-mappings/${configId}`,
+  CLONE: (configId: number) => `/configs/field-mappings/${configId}/clone`,
 };
 
 // Master Data APIs
@@ -62,7 +54,12 @@ export const MASTER_DATA_ENDPOINTS = {
   SCREENS: '/master-data/screens',
 };
 
-// Audit Trail APIs
+// Runtime APIs
+export const RUNTIME_ENDPOINTS = {
+  NEXT_SCREEN: '/runtime/next-screen',
+};
+
+// Audit Trail APIs (Future implementation)
 export const AUDIT_ENDPOINTS = {
   LIST: '/audit/logs',
   GET_BY_CONFIG: (configType: string, configId: string) =>
