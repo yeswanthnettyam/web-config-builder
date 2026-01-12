@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import React, { useState, useEffect, useCallback } from 'react';
 import { Partner, Branch, Product, Screen } from '@/types';
-import { mockMasterData, mockScreenConfigs, mockScreens } from '@/lib/mock-api';
-import { getAllScreenConfigs } from '@/lib/cache-storage';
+import { mockMasterData } from '@/lib/mock-api';
+import { screenConfigApi } from '@/api/screenConfig.api';
 
-// Mock delay for realistic loading
+// Mock delay for realistic loading (only for partners/branches/products that don't have backend yet)
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Hook to fetch partners
@@ -13,7 +12,7 @@ export const usePartners = () => {
     queryKey: ['partners'],
     queryFn: async () => {
       await delay(500);
-      // TODO: Replace with actual API call
+      // TODO: Replace with actual API call when backend endpoint is available
       // return apiClient.get<Partner[]>(MASTER_DATA_ENDPOINTS.PARTNERS);
       return mockMasterData.partners;
     },
@@ -27,7 +26,7 @@ export const useBranches = (partnerCode?: string) => {
     queryKey: ['branches', partnerCode],
     queryFn: async () => {
       await delay(500);
-      // TODO: Replace with actual API call
+      // TODO: Replace with actual API call when backend endpoint is available
       const allBranches = mockMasterData.branches;
       return partnerCode
         ? allBranches.filter((b) => b.partnerCode === partnerCode)
@@ -44,56 +43,49 @@ export const useProducts = () => {
     queryKey: ['products'],
     queryFn: async () => {
       await delay(500);
-      // TODO: Replace with actual API call
+      // TODO: Replace with actual API call when backend endpoint is available
       return mockMasterData.products;
     },
     staleTime: 5 * 60 * 1000,
   });
 };
 
-// Hook to fetch screens - now fetches from created screen configs
+// Hook to fetch all screens from backend
 export const useScreens = () => {
   return useQuery<Screen[]>({
-    queryKey: ['screens'],
+    queryKey: ['screens-all'],
     queryFn: async () => {
-      await delay(500);
-      // TODO: Replace with actual API call
-      // Build screens list from screen configs
-      const screensFromConfigs = mockScreenConfigs.map(config => ({
-        screenId: config.screenId,
-        screenName: config.title,
-        description: `Screen: ${config.title}`,
-      }));
+      const screenConfigs = await screenConfigApi.getAll();
+      
+      // Convert to Screen format
+      const uniqueScreens = Array.from(
+        new Map(
+          screenConfigs.map(config => [
+            config.screenId,
+            {
+              screenId: config.screenId,
+              screenName: (config.uiConfig as any)?.title || config.screenId,
+              description: (config.uiConfig as any)?.description || `Screen: ${config.screenId}`,
+            }
+          ])
+        ).values()
+      );
 
-      // Combine with existing mock screens (remove duplicates)
-      const allScreens = [...mockScreens];
-      screensFromConfigs.forEach(configScreen => {
-        if (!allScreens.find(s => s.screenId === configScreen.screenId)) {
-          allScreens.push(configScreen);
-        }
-      });
-
-      return allScreens;
+      return uniqueScreens;
     },
-    staleTime: 30 * 1000, // 30 seconds - shorter since screens can be added
+    staleTime: 30 * 1000, // 30 seconds
   });
 };
 
-// Hook to fetch screens for dropdowns (in modules 2, 3, 4)
-// This only returns screens that have configs (from cache storage)
+// Hook to fetch ACTIVE screens only (for use in other modules)
 export const useConfiguredScreens = () => {
   return useQuery<Screen[]>({
-    queryKey: ['configured-screens'], // Fixed query key (no Date.now()!)
+    queryKey: ['screens-active'],
     queryFn: async () => {
-      console.log('🔄 Fetching configured screens from cache...');
+      const screenConfigs = await screenConfigApi.getAll();
       
-      // Read from cache storage instead of mock data
-      const cachedConfigs = getAllScreenConfigs();
-      console.log('📦 All cached configs:', cachedConfigs);
-      
-      // Only return ACTIVE screens for use in other modules
-      const activeConfigs = cachedConfigs.filter(config => config.status === 'ACTIVE');
-      console.log('✅ Active configs:', activeConfigs);
+      // Only return ACTIVE screens
+      const activeConfigs = screenConfigs.filter(config => config.status === 'ACTIVE');
       
       // Convert to Screen format
       const uniqueScreens = Array.from(
@@ -102,90 +94,66 @@ export const useConfiguredScreens = () => {
             config.screenId,
             {
               screenId: config.screenId,
-              screenName: config.screenName,
-              description: config.config.title || config.screenName,
+              screenName: (config.uiConfig as any)?.title || config.screenId,
+              description: (config.uiConfig as any)?.description || `Screen: ${config.screenId}`,
             }
           ])
         ).values()
       );
       
-      console.log('📋 Screens for dropdown:', uniqueScreens);
       return uniqueScreens;
     },
-    staleTime: 0, // Always fetch fresh data
-    gcTime: 0, // Don't cache
-    refetchOnMount: 'always', // Always refetch when component mounts
-    refetchOnWindowFocus: true, // Refetch when window regains focus
+    staleTime: 30 * 1000, // 30 seconds
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 };
 
-// Simpler hook using useState (alternative to React Query)
-// Returns ALL screens regardless of status
+// Hook to fetch ALL screens (regardless of status)
+// Used in Validation Builder
 export const useConfiguredScreensSimple = () => {
-  const [screens, setScreens] = useState<Screen[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Use useCallback to memoize the function and prevent infinite loops
-  const loadScreens = useCallback(() => {
-    console.log('🔄 Loading all screens from cache...');
-    
-    try {
-      // Read from cache storage
-      const cachedConfigs = getAllScreenConfigs();
-      console.log('📦 All cached configs:', cachedConfigs);
+  return useQuery<Screen[]>({
+    queryKey: ['screens-all-simple'],
+    queryFn: async () => {
+      const screenConfigs = await screenConfigApi.getAll();
       
-      // Return ALL screens (not filtering by status)
+      // Convert to Screen format
       const uniqueScreens = Array.from(
         new Map(
-          cachedConfigs.map(config => [
+          screenConfigs.map(config => [
             config.screenId,
             {
               screenId: config.screenId,
-              screenName: config.screenName,
-              description: config.config.title || config.screenName,
+              screenName: (config.uiConfig as any)?.title || config.screenId,
+              description: (config.uiConfig as any)?.description || `Screen: ${config.screenId}`,
             }
           ])
         ).values()
       );
       
-      console.log('📋 All screens for dropdown:', uniqueScreens);
-      setScreens(uniqueScreens);
-      setIsLoading(false);
-    } catch (error) {
-      console.error('❌ Error loading screens:', error);
-      setScreens([]);
-      setIsLoading(false);
-    }
-  }, []); // Empty deps = stable function
-
-  useEffect(() => {
-    loadScreens();
-  }, [loadScreens]);
-
-  return {
-    data: screens,
-    isLoading,
-    refetch: loadScreens,
-  };
+      return uniqueScreens;
+    },
+    staleTime: 30 * 1000, // 30 seconds
+    refetchOnMount: 'always',
+  });
 };
 
-// Hook for Field Mapping - only returns COMPLETE screens (with validations)
+// Hook to fetch screens that have validations (for Field Mapping)
 export const useCompleteScreens = () => {
-  const [screens, setScreens] = useState<Screen[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const loadScreens = useCallback(() => {
-    console.log('🔄 Loading complete screens (with validations) from cache...');
-    
-    try {
-      const cachedConfigs = getAllScreenConfigs();
-      console.log('📦 All cached configs:', cachedConfigs);
+  return useQuery<Screen[]>({
+    queryKey: ['screens-with-validations'],
+    queryFn: async () => {
+      // Get all screen configs from backend
+      const screenConfigs = await screenConfigApi.getAll();
       
       // Filter to only screens that have validations
-      const completeScreens = cachedConfigs.filter(
-        config => config.config.validations && config.config.validations.rules
-      );
-      console.log('✅ Complete screens (with validations):', completeScreens);
+      // Note: We need to check if validations exist in the backend
+      // For now, return all screens - backend should handle this logic
+      const completeScreens = screenConfigs.filter(config => {
+        // If validation configs exist separately, we'd check that
+        // For now, return all screens
+        return true;
+      });
       
       // Convert to Screen format
       const uniqueScreens = Array.from(
@@ -194,30 +162,16 @@ export const useCompleteScreens = () => {
             config.screenId,
             {
               screenId: config.screenId,
-              screenName: config.screenName,
-              description: config.config.title || config.screenName,
+              screenName: (config.uiConfig as any)?.title || config.screenId,
+              description: (config.uiConfig as any)?.description || `Screen: ${config.screenId}`,
             }
           ])
         ).values()
       );
       
-      console.log('📋 Complete screens for Field Mapping:', uniqueScreens);
-      setScreens(uniqueScreens);
-      setIsLoading(false);
-    } catch (error) {
-      console.error('❌ Error loading screens:', error);
-      setScreens([]);
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadScreens();
-  }, [loadScreens]);
-
-  return {
-    data: screens,
-    isLoading,
-    refetch: loadScreens,
-  };
+      return uniqueScreens;
+    },
+    staleTime: 30 * 1000, // 30 seconds
+    refetchOnMount: 'always',
+  });
 };

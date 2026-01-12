@@ -40,9 +40,10 @@ import RightPanel from '@/components/flow-builder/RightPanel';
 import NodeConfigPanel from '@/components/flow-builder/NodeConfigPanel';
 import EdgeConfigPanel from '@/components/flow-builder/EdgeConfigPanel';
 import ValidationBanner from '@/components/flow-builder/ValidationBanner';
-import { FlowScreenConfig, NavigationCondition, FlowConfig, FlowValidationResult } from '@/types';
+import { FlowScreenConfig, NavigationCondition, FlowConfig, FlowValidationResult, BackendFlowConfig } from '@/types';
 import { validateFlow } from '@/lib/flow-validation';
-import { saveFlowConfig, getFlowConfigByFlowId, getFlowConfigById, type CachedFlowConfig } from '@/lib/cache-storage';
+import { flowConfigApi } from '@/api/flowConfig.api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
 // Dynamically import ReactFlow to avoid SSR issues
@@ -120,6 +121,7 @@ type PanelContent = {
 
 function NewFlowPageContent() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit');
   const cloneId = searchParams.get('clone');
@@ -141,6 +143,32 @@ function NewFlowPageContent() {
   const [flowStatus, setFlowStatus] = useState<'DRAFT' | 'ACTIVE'>('DRAFT');
   const [validationResult, setValidationResult] = useState<FlowValidationResult | null>(null);
   const [isLoadingFlow, setIsLoadingFlow] = useState(false);
+  
+  // Mutations for flow operations
+  const createFlowMutation = useMutation({
+    mutationFn: (data: Partial<BackendFlowConfig>) => flowConfigApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['flow-configs'] });
+      toast.success('Flow created successfully!');
+      router.push('/flow-builder');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to create flow');
+    },
+  });
+
+  const updateFlowMutation = useMutation({
+    mutationFn: ({ configId, data }: { configId: number; data: Partial<BackendFlowConfig> }) => 
+      flowConfigApi.update(configId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['flow-configs'] });
+      toast.success('Flow updated successfully!');
+      router.push('/flow-builder');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update flow');
+    },
+  });
 
   // Screen configurations - map of screenId to FlowScreenConfig
   const [screenConfigs, setScreenConfigs] = useState<Map<string, FlowScreenConfig>>(new Map());
@@ -171,51 +199,59 @@ function NewFlowPageContent() {
 
   const formValues = watch();
 
+  // Fetch existing flow when editing or cloning
+  const { data: existingFlow, isLoading: flowLoading } = useQuery({
+    queryKey: ['flow-config-edit', flowIdToLoad],
+    queryFn: async () => {
+      if (!flowIdToLoad) return null;
+      const configId = parseInt(flowIdToLoad);
+      if (isNaN(configId)) return null;
+      return await flowConfigApi.getById(configId);
+    },
+    enabled: !!flowIdToLoad,
+  });
+
   // Load existing flow data when editing or cloning
   useEffect(() => {
-    if (flowIdToLoad && configuredScreens && configuredScreens.length > 0) {
+    if (existingFlow && configuredScreens && configuredScreens.length > 0) {
       setIsLoadingFlow(true);
-      const existingFlow = getFlowConfigById(flowIdToLoad);
       
-      if (existingFlow) {
-        console.log('📥 Loading existing flow:', existingFlow);
-        
-        // Populate form fields
-        // Handle both old format (partnerCode/productCode) and new format (scope)
-        const existingScope = existingFlow.config.scope || {
-          type: existingFlow.config.partnerCode ? 'PARTNER' : 'PRODUCT',
-          productCode: existingFlow.config.productCode || '',
-          partnerCode: existingFlow.config.partnerCode || undefined,
-        };
+      console.log('📥 Loading existing flow:', existingFlow);
+      
+      // Extract flow definition from backend format
+      const flowDefinition = existingFlow.flowDefinition as any;
+      
+      // Populate form fields
+      const existingScope = {
+        type: existingFlow.partnerCode ? 'PARTNER' as const : 'PRODUCT' as const,
+        productCode: existingFlow.productCode || '',
+        partnerCode: existingFlow.partnerCode || undefined,
+      };
 
-        reset({
-          flowId: cloneId ? `${existingFlow.flowId}_clone` : existingFlow.flowId,
-          scope: existingScope,
-          startScreen: existingFlow.config.startScreen,
+      reset({
+        flowId: cloneId ? `${existingFlow.flowId}_clone` : existingFlow.flowId,
+        scope: existingScope,
+        startScreen: flowDefinition?.startScreen || '',
+      });
+      
+      // Set flow status (only DRAFT or ACTIVE for editing)
+      setFlowStatus(existingFlow.status === 'DEPRECATED' ? 'DRAFT' : existingFlow.status);
+      
+      // Populate screen configs from the flow
+      const configMap = new Map<string, FlowScreenConfig>();
+      if (flowDefinition?.screens) {
+        flowDefinition.screens.forEach((screenConfig: FlowScreenConfig) => {
+          configMap.set(screenConfig.screenId, screenConfig);
         });
-        
-        // Set flow status (only DRAFT or ACTIVE for editing)
-        setFlowStatus(existingFlow.status === 'DEPRECATED' ? 'DRAFT' : existingFlow.status);
-        
-        // Populate screen configs from the flow
-        const configMap = new Map<string, FlowScreenConfig>();
-        if (existingFlow.config.screens) {
-          existingFlow.config.screens.forEach((screenConfig: FlowScreenConfig) => {
-            configMap.set(screenConfig.screenId, screenConfig);
-          });
-        }
-        setScreenConfigs(configMap);
-        
-        console.log('✅ Loaded screen configs:', Array.from(configMap.entries()));
-        
-        // Edges will be rebuilt automatically by the useEffect that watches screenConfigs
-      } else {
-        toast.error('Flow not found');
-        router.push('/flow-builder');
       }
+      setScreenConfigs(configMap);
+      
+      console.log('✅ Loaded screen configs:', Array.from(configMap.entries()));
+      
+      // Edges will be rebuilt automatically by the useEffect that watches screenConfigs
       setIsLoadingFlow(false);
     }
-  }, [flowIdToLoad, configuredScreens, reset, cloneId, router]);
+  }, [existingFlow, configuredScreens, reset, cloneId, router]);
 
   // Initialize screen configs when screens are loaded (only if not editing/cloning)
   useEffect(() => {
@@ -975,25 +1011,24 @@ function NewFlowPageContent() {
       return;
     }
 
-    // Check if flow already exists
-    const existing = getFlowConfigByFlowId(data.flowId);
-    const configId = existing?.id || `flow_${Date.now()}`;
-
-    // Get flow name from start screen
-    const startScreenName = configuredScreens?.find(s => s.screenId === data.startScreen)?.screenName || data.flowId;
-
-    const cachedConfig: Omit<CachedFlowConfig, 'createdAt' | 'updatedAt'> = {
-      id: configId,
+    // Prepare backend flow data
+    const backendFlowData: Partial<BackendFlowConfig> = {
       flowId: data.flowId,
-      flowName: startScreenName,
-      version: existing ? String(parseInt(existing.version) + 1) : '1',
+      productCode: data.scope.productCode,
+      partnerCode: data.scope.partnerCode,
       status: flowStatus,
-      config: flowConfig,
+      flowDefinition: flowConfig,
     };
 
-    saveFlowConfig(cachedConfig);
-    toast.success(`Flow "${data.flowId}" saved successfully!`);
-    router.push('/flow-builder');
+    // Update or create based on whether we're editing
+    if (editId && existingFlow?.configId) {
+      updateFlowMutation.mutate({
+        configId: existingFlow.configId,
+        data: backendFlowData,
+      });
+    } else {
+      createFlowMutation.mutate(backendFlowData);
+    }
   };
 
   const handleCancel = () => {
@@ -1009,21 +1044,23 @@ function NewFlowPageContent() {
 
     // Save as draft even if validation fails
     setFlowStatus('DRAFT');
-    const existing = getFlowConfigByFlowId(formValues.flowId);
-    const configId = existing?.id || `flow_${Date.now()}`;
-    const startScreenName = configuredScreens?.find(s => s.screenId === formValues.startScreen)?.screenName || formValues.flowId;
-
-    const cachedConfig: Omit<CachedFlowConfig, 'createdAt' | 'updatedAt'> = {
-      id: configId,
+    
+    const backendFlowData: Partial<BackendFlowConfig> = {
       flowId: formValues.flowId,
-      flowName: startScreenName,
-      version: existing ? String(parseInt(existing.version) + 1) : '1',
+      productCode: formValues.scope.productCode,
+      partnerCode: formValues.scope.partnerCode,
       status: 'DRAFT',
-      config: flowConfig,
+      flowDefinition: flowConfig,
     };
 
-    saveFlowConfig(cachedConfig);
-    toast.success('Draft saved successfully!');
+    if (editId && existingFlow?.configId) {
+      updateFlowMutation.mutate({
+        configId: existingFlow.configId,
+        data: backendFlowData,
+      });
+    } else {
+      createFlowMutation.mutate(backendFlowData);
+    }
   };
 
   const handleActivate = () => {
@@ -1039,22 +1076,23 @@ function NewFlowPageContent() {
     }
 
     setFlowStatus('ACTIVE');
-    const existing = getFlowConfigByFlowId(formValues.flowId);
-    const configId = existing?.id || `flow_${Date.now()}`;
-    const startScreenName = configuredScreens?.find(s => s.screenId === formValues.startScreen)?.screenName || formValues.flowId;
-
-    const cachedConfig: Omit<CachedFlowConfig, 'createdAt' | 'updatedAt'> = {
-      id: configId,
+    
+    const backendFlowData: Partial<BackendFlowConfig> = {
       flowId: formValues.flowId,
-      flowName: startScreenName,
-      version: existing ? String(parseInt(existing.version) + 1) : '1',
+      productCode: formValues.scope.productCode,
+      partnerCode: formValues.scope.partnerCode,
       status: 'ACTIVE',
-      config: flowConfig,
+      flowDefinition: flowConfig,
     };
 
-    saveFlowConfig(cachedConfig);
-    toast.success('Flow activated successfully!');
-    router.push('/flow-builder');
+    if (editId && existingFlow?.configId) {
+      updateFlowMutation.mutate({
+        configId: existingFlow.configId,
+        data: backendFlowData,
+      });
+    } else {
+      createFlowMutation.mutate(backendFlowData);
+    }
   };
 
   const availableScreens = configuredScreens?.map((s) => ({

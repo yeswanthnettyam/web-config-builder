@@ -45,6 +45,7 @@ import ErrorState from '@/components/shared/ErrorState';
 import EmptyState from '@/components/shared/EmptyState';
 import StatusChip from '@/components/shared/StatusChip';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import ActivateDialog from '@/components/shared/ActivateDialog';
 import JsonViewer from '@/components/shared/JsonViewer';
 import { usePartners, useScreens } from '@/hooks/use-master-data';
 import { BackendScreenConfig } from '@/types';
@@ -62,9 +63,11 @@ export default function ScreenBuilderPage() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedConfig, setSelectedConfig] = useState<BackendScreenConfig | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [activateDialogOpen, setActivateDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [configs, setConfigs] = useState<BackendScreenConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isActivating, setIsActivating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
@@ -175,6 +178,38 @@ export default function ScreenBuilderPage() {
       }
     }
     handleMenuClose();
+  };
+
+  const handleActivate = () => {
+    handleMenuClose();
+    setActivateDialogOpen(true);
+  };
+
+  const handleConfirmActivate = async () => {
+    if (selectedConfig && selectedConfig.configId) {
+      setIsActivating(true);
+      try {
+        await screenConfigApi.activate(selectedConfig.configId);
+        setSnackbar({
+          open: true,
+          message: 'Configuration activated successfully',
+          severity: 'success',
+        });
+        setActivateDialogOpen(false);
+        setSelectedConfig(null);
+        loadConfigs(); // Reload the list
+      } catch (err) {
+        const axiosError = err as AxiosError<{ message: string }>;
+        const errorMessage = axiosError.response?.data?.message || 'Failed to activate configuration';
+        setSnackbar({
+          open: true,
+          message: errorMessage,
+          severity: 'error',
+        });
+      } finally {
+        setIsActivating(false);
+      }
+    }
   };
 
   const handleDelete = () => {
@@ -355,12 +390,22 @@ export default function ScreenBuilderPage() {
             </ListItemIcon>
             <ListItemText>View</ListItemText>
           </MenuItem>
-          <MenuItem onClick={handleEdit}>
-            <ListItemIcon>
-              <Edit fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Edit</ListItemText>
-          </MenuItem>
+          {selectedConfig?.status === 'DRAFT' && (
+            <>
+              <MenuItem onClick={handleEdit}>
+                <ListItemIcon>
+                  <Edit fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Edit</ListItemText>
+              </MenuItem>
+              <MenuItem onClick={handleActivate}>
+                <ListItemIcon>
+                  <CheckCircle fontSize="small" color="success" />
+                </ListItemIcon>
+                <ListItemText>Activate</ListItemText>
+              </MenuItem>
+            </>
+          )}
           <MenuItem onClick={handleClone}>
             <ListItemIcon>
               <ContentCopy fontSize="small" />
@@ -376,6 +421,16 @@ export default function ScreenBuilderPage() {
             </MenuItem>
           )}
         </Menu>
+
+        {/* Activate Confirmation Dialog */}
+        <ActivateDialog
+          open={activateDialogOpen}
+          onClose={() => setActivateDialogOpen(false)}
+          onConfirm={handleConfirmActivate}
+          configType="Screen"
+          configName={selectedConfig?.screenId || ''}
+          isLoading={isActivating}
+        />
 
         {/* Delete Confirmation Dialog */}
         <ConfirmDialog

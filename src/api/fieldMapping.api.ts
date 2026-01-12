@@ -66,4 +66,23 @@ export const fieldMappingApi = {
       MAPPING_ENDPOINTS.CLONE(configId)
     );
   },
+
+  /**
+   * Activate field mapping configuration
+   * This will make the config ACTIVE and deprecate any existing ACTIVE config for the same scope
+   */
+  async activate(configId: number): Promise<BackendFieldMappingConfig> {
+    return apiClient.post<BackendFieldMappingConfig>(
+      MAPPING_ENDPOINTS.ACTIVATE(configId)
+    );
+  },
+
+  /**
+   * Deprecate field mapping configuration
+   */
+  async deprecate(configId: number): Promise<BackendFieldMappingConfig> {
+    return apiClient.post<BackendFieldMappingConfig>(
+      MAPPING_ENDPOINTS.DEPRECATE(configId)
+    );
+  },
 };

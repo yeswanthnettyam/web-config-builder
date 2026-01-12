@@ -1,6 +1,13 @@
 /**
- * Client-side cache storage for configurations
- * Uses localStorage for persistence across sessions
+ * ⚠️ DEPRECATED: Client-side cache storage for configurations
+ * 
+ * This module is DEPRECATED. Use backend APIs instead:
+ * - screenConfigApi from '@/api/screenConfig.api'
+ * - flowConfigApi from '@/api/flowConfig.api'
+ * - validationConfigApi from '@/api/validationConfig.api'
+ * - fieldMappingApi from '@/api/fieldMapping.api'
+ * 
+ * @deprecated Since version 2.0.0. All pages now use backend APIs.
  */
 
 export interface CachedScreenConfig {

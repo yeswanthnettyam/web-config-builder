@@ -64,4 +64,23 @@ export const screenConfigApi = {
       SCREEN_CONFIG_ENDPOINTS.CLONE(configId)
     );
   },
+
+  /**
+   * Activate screen configuration
+   * This will make the config ACTIVE and deprecate any existing ACTIVE config for the same scope
+   */
+  async activate(configId: number): Promise<BackendScreenConfig> {
+    return apiClient.post<BackendScreenConfig>(
+      SCREEN_CONFIG_ENDPOINTS.ACTIVATE(configId)
+    );
+  },
+
+  /**
+   * Deprecate screen configuration
+   */
+  async deprecate(configId: number): Promise<BackendScreenConfig> {
+    return apiClient.post<BackendScreenConfig>(
+      SCREEN_CONFIG_ENDPOINTS.DEPRECATE(configId)
+    );
+  },
 };

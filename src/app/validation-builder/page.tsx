@@ -22,6 +22,7 @@ import {
   Alert,
   Tabs,
   Tab,
+  Chip,
 } from '@mui/material';
 import {
   Add,
@@ -29,6 +30,7 @@ import {
   Cancel,
   Delete,
   Visibility,
+  CheckCircle,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
@@ -37,18 +39,14 @@ import ProtectedRoute from '@/components/layout/ProtectedRoute';
 import PageHeader from '@/components/shared/PageHeader';
 import FilterPanel, { Filter } from '@/components/shared/FilterPanel';
 import EmptyState from '@/components/shared/EmptyState';
+import ActivateDialog from '@/components/shared/ActivateDialog';
 import JsonViewer from '@/components/shared/JsonViewer';
 import { useConfiguredScreensSimple } from '@/hooks/use-master-data';
 import { VALIDATION_TYPES, EXECUTION_TARGETS, CODE_LANGUAGES } from '@/lib/constants';
-import {
-  getAllValidationConfigs,
-  saveValidationConfig,
-  deleteValidationConfig,
-  getScreenConfigByScreenId,
-  saveScreenConfig,
-  getAllScreenConfigs,
-  type CachedValidationConfig,
-} from '@/lib/cache-storage';
+import { validationConfigApi } from '@/api/validationConfig.api';
+import { screenConfigApi } from '@/api/screenConfig.api';
+import { BackendValidationConfig } from '@/types';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
 interface ValidationRule {
@@ -71,17 +69,63 @@ interface ValidationRule {
 
 export default function ValidationBuilderPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState({
     screenId: '',
   });
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [validationConfigs, setValidationConfigs] = useState<CachedValidationConfig[]>([]);
+  const [activateDialogOpen, setActivateDialogOpen] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
+  const [selectedConfig, setSelectedConfig] = useState<BackendValidationConfig | null>(null);
   const [availableFields, setAvailableFields] = useState<Array<{ id: string; type: string }>>([]);
-  const [editingConfig, setEditingConfig] = useState<any>(null);
+  const [editingConfig, setEditingConfig] = useState<BackendValidationConfig | null>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [viewingConfig, setViewingConfig] = useState<any>(null);
+  const [viewingConfig, setViewingConfig] = useState<BackendValidationConfig | null>(null);
   const { data: configuredScreens, isLoading: screensLoading, refetch: refetchScreens } = useConfiguredScreensSimple();
+
+  // Fetch validation configurations
+  const { data: validationConfigs = [], isLoading, refetch } = useQuery({
+    queryKey: ['validation-configs'],
+    queryFn: () => validationConfigApi.getAll(),
+  });
+
+  // Mutations
+  const createMutation = useMutation({
+    mutationFn: (data: Partial<BackendValidationConfig>) => validationConfigApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['validation-configs'] });
+      toast.success('Validation configuration created successfully!');
+      handleCloseDialog();
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to create validation configuration');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ configId, data }: { configId: number; data: Partial<BackendValidationConfig> }) => 
+      validationConfigApi.update(configId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['validation-configs'] });
+      toast.success('Validation configuration updated successfully!');
+      handleCloseDialog();
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update validation configuration');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (configId: number) => validationConfigApi.delete(configId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['validation-configs'] });
+      toast.success('Validation configuration deleted successfully!');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete validation configuration');
+    },
+  });
 
   // Refetch screens when dialog opens
   useEffect(() => {
@@ -104,74 +148,64 @@ export default function ValidationBuilderPage() {
 
   const selectedScreenId = watch('screenId');
 
-  // Load screens with validation status
-  const loadValidationConfigs = useCallback(() => {
-    // Load all screen configs
-    const allScreens = getAllScreenConfigs();
-    
-    // Filter to show only screens that have validations
-    let screensWithValidations = allScreens.filter(
-      screen => screen.config.validations && screen.config.validations.rules
-    );
-    
+  // Filter validation configs based on selected screen
+  const filteredValidationConfigs = validationConfigs.filter(config => {
     if (filters.screenId) {
-      screensWithValidations = screensWithValidations.filter(
-        s => s.screenId === filters.screenId
-      );
+      return config.screenId === filters.screenId;
     }
-    
-    // Convert to validation config format for display
-    const validationConfigs = screensWithValidations.map(screen => ({
-      id: screen.id,
-      screenId: screen.screenId,
-      version: screen.version,
-      validations: screen.config.validations,
-      createdAt: screen.createdAt,
-      updatedAt: screen.updatedAt,
-    }));
-    
-    setValidationConfigs(validationConfigs as any);
-  }, [filters]);
+    return true;
+  });
 
-  useEffect(() => {
-    loadValidationConfigs();
-  }, [loadValidationConfigs]);
+  // Fetch screen config when screen is selected (to get fields)
+  const { data: selectedScreenConfig } = useQuery({
+    queryKey: ['screen-config-for-validation', selectedScreenId],
+    queryFn: async () => {
+      if (!selectedScreenId || !configuredScreens) return null;
+      
+      // Find the screen to verify it exists
+      const screen = configuredScreens.find(s => s.screenId === selectedScreenId);
+      if (!screen) return null;
+      
+      // Fetch all screen configs and find the one matching this screenId
+      const allScreenConfigs = await screenConfigApi.getAll();
+      const screenConfig = allScreenConfigs.find(config => config.screenId === selectedScreenId);
+      
+      return screenConfig || null;
+    },
+    enabled: !!selectedScreenId && !!configuredScreens,
+  });
 
-  // Load fields when screen is selected
+  // Load fields when screen config is loaded
   useEffect(() => {
-    if (selectedScreenId) {
-      const screenConfig = getScreenConfigByScreenId(selectedScreenId);
-      if (screenConfig) {
-        const fields: Array<{ id: string; type: string }> = [];
-        
-        // Extract all field IDs and types from the screen config
-        screenConfig.config.ui?.sections?.forEach((section: any) => {
-          if (section.fields) {
-            section.fields.forEach((field: any) => {
+    if (selectedScreenConfig) {
+      const fields: Array<{ id: string; type: string }> = [];
+      
+      // Extract all field IDs and types from the screen config
+      const uiConfig = selectedScreenConfig.uiConfig as any;
+      uiConfig?.ui?.sections?.forEach((section: any) => {
+        if (section.fields) {
+          section.fields.forEach((field: any) => {
+            if (field.id && field.type) {
+              fields.push({ id: field.id, type: field.type });
+            }
+          });
+        }
+        if (section.subSections) {
+          section.subSections.forEach((subSection: any) => {
+            subSection.fields?.forEach((field: any) => {
               if (field.id && field.type) {
                 fields.push({ id: field.id, type: field.type });
               }
             });
-          }
-          if (section.subSections) {
-            section.subSections.forEach((subSection: any) => {
-              subSection.fields?.forEach((field: any) => {
-                if (field.id && field.type) {
-                  fields.push({ id: field.id, type: field.type });
-                }
-              });
-            });
-          }
-        });
-        
-        setAvailableFields(fields);
-      } else {
-        setAvailableFields([]);
-      }
+          });
+        }
+      });
+      
+      setAvailableFields(fields);
     } else {
       setAvailableFields([]);
     }
-  }, [selectedScreenId]);
+  }, [selectedScreenConfig]);
 
   const handleFilterChange = (name: string, value: string) => {
     setFilters((prev) => ({ ...prev, [name]: value }));
@@ -203,36 +237,21 @@ export default function ValidationBuilderPage() {
       return;
     }
     
-    // Get the screen config
-    const screenConfig = getScreenConfigByScreenId(data.screenId);
-    if (!screenConfig) {
-      toast.error('Screen configuration not found');
-      return;
-    }
-    
-    // Update the screen config with validations
-    const updatedConfig = {
-      ...screenConfig,
-      config: {
-        ...screenConfig.config,
-        validations: {
-          rules: data.rules,
-        },
+    const validationData: Partial<BackendValidationConfig> = {
+      screenId: data.screenId,
+      validationRules: {
+        rules: data.rules,
       },
     };
     
-    // Save back to screen configs (not separate validation config)
-    saveScreenConfig(updatedConfig);
-    
-    console.log('💾 Updated screen config with validations:', updatedConfig);
-    toast.success(
-      editingConfig 
-        ? 'Validation rules updated successfully!' 
-        : 'Validations added to screen successfully! Screen is now complete.'
-    );
-    
-    handleCloseDialog();
-    loadValidationConfigs();
+    if (editingConfig && editingConfig.configId) {
+      updateMutation.mutate({
+        configId: editingConfig.configId,
+        data: validationData,
+      });
+    } else {
+      createMutation.mutate(validationData);
+    }
   };
 
   const handleView = (config: any) => {
@@ -240,27 +259,44 @@ export default function ValidationBuilderPage() {
     setViewDialogOpen(true);
   };
 
-  const handleEdit = (config: any) => {
+  const handleEdit = (config: BackendValidationConfig) => {
     setEditingConfig(config);
     
-    // Load the screen config to get the validations
-    const screenConfig = getScreenConfigByScreenId(config.screenId);
-    if (screenConfig && screenConfig.config.validations) {
-      // Set form values
-      reset({
-        screenId: config.screenId,
-        rules: screenConfig.config.validations.rules || [],
-      });
-    }
+    // Set form values
+    const validationRules = config.validationRules as any;
+    reset({
+      screenId: config.screenId,
+      rules: validationRules?.rules || [],
+    });
     
     setDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleActivate = (config: BackendValidationConfig) => {
+    setSelectedConfig(config);
+    setActivateDialogOpen(true);
+  };
+
+  const handleConfirmActivate = async () => {
+    if (selectedConfig && selectedConfig.configId) {
+      setIsActivating(true);
+      try {
+        await validationConfigApi.activate(selectedConfig.configId);
+        toast.success('Validation configuration activated successfully');
+        setActivateDialogOpen(false);
+        setSelectedConfig(null);
+        refetch();
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to activate validation configuration');
+      } finally {
+        setIsActivating(false);
+      }
+    }
+  };
+
+  const handleDelete = (configId: number) => {
     if (window.confirm('Are you sure you want to delete this validation configuration?')) {
-      deleteValidationConfig(id);
-      toast.success('Validation configuration deleted');
-      loadValidationConfigs();
+      deleteMutation.mutate(configId);
     }
   };
 
@@ -320,7 +356,11 @@ export default function ValidationBuilderPage() {
         />
 
         <Card>
-          {validationConfigs.length === 0 ? (
+          {isLoading ? (
+            <Box sx={{ padding: 4, textAlign: 'center' }}>
+              <Typography>Loading validation configurations...</Typography>
+            </Box>
+          ) : filteredValidationConfigs.length === 0 ? (
             <EmptyState
               title="No validation configurations found"
               description="Create validation rules to enforce business logic and data correctness"
@@ -338,18 +378,30 @@ export default function ValidationBuilderPage() {
                     <TableCell>Screen ID</TableCell>
                     <TableCell>Rules Count</TableCell>
                     <TableCell>Version</TableCell>
+                    <TableCell>Status</TableCell>
                     <TableCell>Last Updated</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {validationConfigs.map((config) => (
-                    <TableRow key={config.id} hover>
+                  {filteredValidationConfigs.map((config) => (
+                    <TableRow key={config.configId} hover>
                       <TableCell>{config.screenId}</TableCell>
-                      <TableCell>{config.validations?.rules?.length || 0}</TableCell>
-                      <TableCell>v{config.version}</TableCell>
+                      <TableCell>{(config.validationRules as any)?.rules?.length || 0}</TableCell>
+                      <TableCell>v{config.version || '1.0'}</TableCell>
                       <TableCell>
-                        {new Date(config.updatedAt).toLocaleString()}
+                        <Chip
+                          label={config.status || 'DRAFT'}
+                          color={
+                            config.status === 'ACTIVE' ? 'success' :
+                            config.status === 'DEPRECATED' ? 'default' :
+                            'warning'
+                          }
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {config.updatedAt ? new Date(config.updatedAt).toLocaleString() : '-'}
                       </TableCell>
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
@@ -361,22 +413,36 @@ export default function ValidationBuilderPage() {
                           >
                             View
                           </Button>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<Add />}
-                            onClick={() => handleEdit(config)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            size="small"
-                            color="error"
-                            startIcon={<Delete />}
-                            onClick={() => handleDelete(config.id)}
-                          >
-                            Delete
-                          </Button>
+                          {config.status === 'DRAFT' && (
+                            <>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<Add />}
+                                onClick={() => handleEdit(config)}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                color="success"
+                                startIcon={<CheckCircle />}
+                                onClick={() => handleActivate(config)}
+                              >
+                                Activate
+                              </Button>
+                              <Button
+                                size="small"
+                                color="error"
+                                startIcon={<Delete />}
+                                onClick={() => config.configId && handleDelete(config.configId)}
+                                disabled={!config.configId}
+                              >
+                                Delete
+                              </Button>
+                            </>
+                          )}
                         </Box>
                       </TableCell>
                     </TableRow>
@@ -782,6 +848,16 @@ export default function ValidationBuilderPage() {
           </form>
         </Dialog>
 
+        {/* Activate Confirmation Dialog */}
+        <ActivateDialog
+          open={activateDialogOpen}
+          onClose={() => setActivateDialogOpen(false)}
+          onConfirm={handleConfirmActivate}
+          configType="Validation"
+          configName={selectedConfig?.screenId || ''}
+          isLoading={isActivating}
+        />
+
         {/* View Configuration Dialog */}
         <Dialog
           open={viewDialogOpen}
@@ -799,7 +875,7 @@ export default function ValidationBuilderPage() {
                   data={{
                     screenId: viewingConfig.screenId,
                     version: viewingConfig.version,
-                    rules: viewingConfig.validations?.rules || [],
+                    rules: (viewingConfig.validationRules as any)?.rules || [],
                     updatedAt: viewingConfig.updatedAt,
                   }}
                   title="Validation Configuration"

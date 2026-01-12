@@ -29,6 +29,7 @@ import {
   ContentCopy,
   Delete,
   MoreVert,
+  CheckCircle,
 } from '@mui/icons-material';
 import { Chip } from '@mui/material';
 import { useRouter } from 'next/navigation';
@@ -41,63 +42,69 @@ import EmptyState from '@/components/shared/EmptyState';
 import StatusChip from '@/components/shared/StatusChip';
 import { ScopeBadge } from '@/components/config/ScopeBadge';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
+import ActivateDialog from '@/components/shared/ActivateDialog';
 import JsonViewer from '@/components/shared/JsonViewer';
 import { usePartners, useProducts } from '@/hooks/use-master-data';
 import { formatDateTime } from '@/lib/utils';
-import { getAllFlowConfigs, deleteFlowConfig, type CachedFlowConfig } from '@/lib/cache-storage';
+import { flowConfigApi } from '@/api/flowConfig.api';
+import { BackendFlowConfig } from '@/types';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
 export default function FlowBuilderPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState({
     partnerCode: '',
     productCode: '',
     status: '',
   });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedFlow, setSelectedFlow] = useState<CachedFlowConfig | null>(null);
+  const [selectedFlow, setSelectedFlow] = useState<BackendFlowConfig | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [activateDialogOpen, setActivateDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [flows, setFlows] = useState<CachedFlowConfig[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isActivating, setIsActivating] = useState(false);
 
   const { data: partners } = usePartners();
   const { data: products } = useProducts();
 
-  // Load flows from cache
-  const loadFlows = useCallback(() => {
-    setIsLoading(true);
-    const cachedFlows = getAllFlowConfigs();
-    
-    // Apply filters
-    let filtered = cachedFlows;
-    
-    // Handle both old format (partnerCode/productCode) and new format (scope)
+  // Fetch flows from backend
+  const { data: flows = [], isLoading, refetch } = useQuery({
+    queryKey: ['flow-configs'],
+    queryFn: () => flowConfigApi.getAll(),
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (configId: number) => flowConfigApi.delete(configId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['flow-configs'] });
+      toast.success('Flow deleted successfully');
+      setDeleteDialogOpen(false);
+      setSelectedFlow(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete flow');
+    },
+  });
+
+  // Filter flows based on selected criteria
+  const filteredFlows = flows.filter(flow => {
     if (filters.partnerCode) {
-      filtered = filtered.filter(f => 
-        f.config.scope?.partnerCode === filters.partnerCode || 
-        f.config.partnerCode === filters.partnerCode
-      );
+      if (flow.partnerCode !== filters.partnerCode) return false;
     }
     
     if (filters.productCode) {
-      filtered = filtered.filter(f => 
-        f.config.scope?.productCode === filters.productCode || 
-        f.config.productCode === filters.productCode
-      );
+      if (flow.productCode !== filters.productCode) return false;
     }
     
     if (filters.status) {
-      filtered = filtered.filter(f => f.status === filters.status);
+      if (flow.status !== filters.status) return false;
     }
     
-    setFlows(filtered);
-    setIsLoading(false);
-  }, [filters]);
-
-  useEffect(() => {
-    loadFlows();
-  }, [loadFlows]);
+    return true;
+  });
 
   const handleFilterChange = (name: string, value: string) => {
     setFilters((prev) => ({ ...prev, [name]: value }));
@@ -113,7 +120,7 @@ export default function FlowBuilderPage() {
 
   const handleMenuOpen = (
     event: React.MouseEvent<HTMLElement>,
-    flow: CachedFlowConfig
+    flow: BackendFlowConfig
   ) => {
     setAnchorEl(event.currentTarget);
     setSelectedFlow(flow);
@@ -130,16 +137,38 @@ export default function FlowBuilderPage() {
 
   const handleEdit = () => {
     if (selectedFlow) {
-      router.push(`/flow-builder/new?edit=${selectedFlow.id}`);
+      router.push(`/flow-builder/new?edit=${selectedFlow.configId}`);
     }
     handleMenuClose();
   };
 
   const handleClone = () => {
     if (selectedFlow) {
-      router.push(`/flow-builder/new?clone=${selectedFlow.id}`);
+      router.push(`/flow-builder/new?clone=${selectedFlow.configId}`);
     }
     handleMenuClose();
+  };
+
+  const handleActivate = () => {
+    handleMenuClose();
+    setActivateDialogOpen(true);
+  };
+
+  const handleConfirmActivate = async () => {
+    if (selectedFlow && selectedFlow.configId) {
+      setIsActivating(true);
+      try {
+        await flowConfigApi.activate(selectedFlow.configId);
+        toast.success('Flow activated successfully');
+        setActivateDialogOpen(false);
+        setSelectedFlow(null);
+        refetch();
+      } catch (error: any) {
+        toast.error(error.message || 'Failed to activate flow');
+      } finally {
+        setIsActivating(false);
+      }
+    }
   };
 
   const handleDelete = () => {
@@ -148,12 +177,8 @@ export default function FlowBuilderPage() {
   };
 
   const handleConfirmDelete = () => {
-    if (selectedFlow) {
-      deleteFlowConfig(selectedFlow.id);
-      toast.success('Flow deleted successfully');
-      setDeleteDialogOpen(false);
-      setSelectedFlow(null);
-      loadFlows(); // Reload the list
+    if (selectedFlow && selectedFlow.configId) {
+      deleteMutation.mutate(selectedFlow.configId);
     }
   };
 
@@ -224,7 +249,7 @@ export default function FlowBuilderPage() {
         <Card>
           {isLoading ? (
             <LoadingState message="Loading flows..." />
-          ) : !flows || flows.length === 0 ? (
+          ) : !filteredFlows || filteredFlows.length === 0 ? (
             <EmptyState
               title="No flows found"
               description="Create your first flow to define customer journeys"
@@ -251,7 +276,7 @@ export default function FlowBuilderPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {flows.map((flow) => (
+                  {filteredFlows.map((flow) => (
                     <TableRow
                       key={flow.flowId}
                       hover
@@ -259,28 +284,22 @@ export default function FlowBuilderPage() {
                     >
                       <TableCell>{flow.flowId}</TableCell>
                       <TableCell>
-                        {flow.config.scope?.productCode || flow.config.productCode}
+                        {flow.productCode || '-'}
                       </TableCell>
                       <TableCell>
-                        {flow.config.scope?.partnerCode || flow.config.partnerCode || (
-                          <Chip label="ALL" size="small" variant="outlined" />
-                        )}
+                        {flow.partnerCode || <Chip label="ALL" size="small" variant="outlined" />}
                       </TableCell>
                       <TableCell>
-                        {flow.config.scope ? (
-                          <ScopeBadge scope={flow.config.scope} />
-                        ) : (
-                          <Chip label="PARTNER" size="small" color="success" />
-                        )}
+                        <Chip label="PARTNER" size="small" color="success" />
                       </TableCell>
-                      <TableCell>{flow.config.startScreen}</TableCell>
-                      <TableCell>{flow.config.screens.length}</TableCell>
-                      <TableCell>v{flow.version}</TableCell>
+                      <TableCell>{(flow.flowDefinition as any)?.startScreen || '-'}</TableCell>
+                      <TableCell>{(flow.flowDefinition as any)?.screens?.length || 0}</TableCell>
+                      <TableCell>v{flow.version || '1.0'}</TableCell>
                       <TableCell>
                         <StatusChip status={flow.status} />
                       </TableCell>
                       <TableCell>
-                        {formatDateTime(flow.updatedAt)}
+                        {flow.updatedAt ? formatDateTime(flow.updatedAt) : '-'}
                       </TableCell>
                       <TableCell align="right">
                         <Tooltip title="More actions">
@@ -312,25 +331,47 @@ export default function FlowBuilderPage() {
             </ListItemIcon>
             <ListItemText>View</ListItemText>
           </MenuItem>
-          <MenuItem onClick={handleEdit}>
-            <ListItemIcon>
-              <Edit fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Edit</ListItemText>
-          </MenuItem>
+          {selectedFlow?.status === 'DRAFT' && (
+            <>
+              <MenuItem onClick={handleEdit}>
+                <ListItemIcon>
+                  <Edit fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>Edit</ListItemText>
+              </MenuItem>
+              <MenuItem onClick={handleActivate}>
+                <ListItemIcon>
+                  <CheckCircle fontSize="small" color="success" />
+                </ListItemIcon>
+                <ListItemText>Activate</ListItemText>
+              </MenuItem>
+            </>
+          )}
           <MenuItem onClick={handleClone}>
             <ListItemIcon>
               <ContentCopy fontSize="small" />
             </ListItemIcon>
             <ListItemText>Clone</ListItemText>
           </MenuItem>
-          <MenuItem onClick={handleDelete}>
-            <ListItemIcon>
-              <Delete fontSize="small" color="error" />
-            </ListItemIcon>
-            <ListItemText>Delete</ListItemText>
-          </MenuItem>
+          {selectedFlow?.status === 'DRAFT' && (
+            <MenuItem onClick={handleDelete}>
+              <ListItemIcon>
+                <Delete fontSize="small" color="error" />
+              </ListItemIcon>
+              <ListItemText>Delete</ListItemText>
+            </MenuItem>
+          )}
         </Menu>
+
+        {/* Activate Confirmation Dialog */}
+        <ActivateDialog
+          open={activateDialogOpen}
+          onClose={() => setActivateDialogOpen(false)}
+          onConfirm={handleConfirmActivate}
+          configType="Flow"
+          configName={selectedFlow?.flowId || ''}
+          isLoading={isActivating}
+        />
 
         {/* Delete Confirmation Dialog */}
         <ConfirmDialog
@@ -357,7 +398,7 @@ export default function FlowBuilderPage() {
             {selectedFlow && (
               <Box sx={{ paddingTop: 2 }}>
                 <JsonViewer
-                  data={selectedFlow.config}
+                  data={selectedFlow.flowDefinition}
                   title="Flow Configuration"
                   filename={`${selectedFlow.flowId}_flow_config.json`}
                 />

@@ -13,6 +13,8 @@ export const SCREEN_CONFIG_ENDPOINTS = {
   CREATE: '/configs/screens',
   UPDATE: (configId: number) => `/configs/screens/${configId}`,
   DELETE: (configId: number) => `/configs/screens/${configId}`,
+  ACTIVATE: (configId: number) => `/configs/screens/${configId}/activate`,
+  DEPRECATE: (configId: number) => `/configs/screens/${configId}/deprecate`,
   CLONE: (configId: number) => `/configs/screens/${configId}/clone`,
 };
 
@@ -23,6 +25,8 @@ export const VALIDATION_CONFIG_ENDPOINTS = {
   CREATE: '/configs/validations',
   UPDATE: (configId: number) => `/configs/validations/${configId}`,
   DELETE: (configId: number) => `/configs/validations/${configId}`,
+  ACTIVATE: (configId: number) => `/configs/validations/${configId}/activate`,
+  DEPRECATE: (configId: number) => `/configs/validations/${configId}/deprecate`,
   CLONE: (configId: number) => `/configs/validations/${configId}/clone`,
 };
 
@@ -33,6 +37,8 @@ export const FLOW_CONFIG_ENDPOINTS = {
   CREATE: '/configs/flows',
   UPDATE: (configId: number) => `/configs/flows/${configId}`,
   DELETE: (configId: number) => `/configs/flows/${configId}`,
+  ACTIVATE: (configId: number) => `/configs/flows/${configId}/activate`,
+  DEPRECATE: (configId: number) => `/configs/flows/${configId}/deprecate`,
   CLONE: (configId: number) => `/configs/flows/${configId}/clone`,
 };
 
@@ -43,6 +49,8 @@ export const MAPPING_ENDPOINTS = {
   CREATE: '/configs/field-mappings',
   UPDATE: (configId: number) => `/configs/field-mappings/${configId}`,
   DELETE: (configId: number) => `/configs/field-mappings/${configId}`,
+  ACTIVATE: (configId: number) => `/configs/field-mappings/${configId}/activate`,
+  DEPRECATE: (configId: number) => `/configs/field-mappings/${configId}/deprecate`,
   CLONE: (configId: number) => `/configs/field-mappings/${configId}/clone`,
 };
 

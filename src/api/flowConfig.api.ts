@@ -64,4 +64,23 @@ export const flowConfigApi = {
       FLOW_CONFIG_ENDPOINTS.CLONE(configId)
     );
   },
+
+  /**
+   * Activate flow configuration
+   * This will make the config ACTIVE and deprecate any existing ACTIVE config for the same scope
+   */
+  async activate(configId: number): Promise<BackendFlowConfig> {
+    return apiClient.post<BackendFlowConfig>(
+      FLOW_CONFIG_ENDPOINTS.ACTIVATE(configId)
+    );
+  },
+
+  /**
+   * Deprecate flow configuration
+   */
+  async deprecate(configId: number): Promise<BackendFlowConfig> {
+    return apiClient.post<BackendFlowConfig>(
+      FLOW_CONFIG_ENDPOINTS.DEPRECATE(configId)
+    );
+  },
 };

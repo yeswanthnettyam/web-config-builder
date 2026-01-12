@@ -70,4 +70,23 @@ export const validationConfigApi = {
       VALIDATION_CONFIG_ENDPOINTS.CLONE(configId)
     );
   },
+
+  /**
+   * Activate validation configuration
+   * This will make the config ACTIVE and deprecate any existing ACTIVE config for the same scope
+   */
+  async activate(configId: number): Promise<BackendValidationConfig> {
+    return apiClient.post<BackendValidationConfig>(
+      VALIDATION_CONFIG_ENDPOINTS.ACTIVATE(configId)
+    );
+  },
+
+  /**
+   * Deprecate validation configuration
+   */
+  async deprecate(configId: number): Promise<BackendValidationConfig> {
+    return apiClient.post<BackendValidationConfig>(
+      VALIDATION_CONFIG_ENDPOINTS.DEPRECATE(configId)
+    );
+  },
 };
