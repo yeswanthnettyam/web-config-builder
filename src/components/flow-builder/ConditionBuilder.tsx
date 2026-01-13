@@ -327,7 +327,11 @@ function SingleConditionEditor({
           value={condition.field || ''}
           onChange={(e) => onChange({ ...condition, field: e.target.value })}
           sx={{ marginBottom: 2 }}
+          helperText="Select the field to evaluate in this condition"
         >
+          <MenuItem value="">
+            <em>Select a field</em>
+          </MenuItem>
           {getFieldsForSource(condition.source, availableFields, availableServices).map(
             (field) => (
               <MenuItem key={field} value={field}>
@@ -400,9 +404,28 @@ function getFieldsForSource(
         `${service}.result`,
       ]);
     case 'APPLICATION_STATE':
-      return ['loanAmount', 'creditScore', 'applicationStatus'];
+      // These are standard runtime fields provided by the backend
+      // TODO: Fetch from backend API if these become configurable
+      return [
+        'applicationId',
+        'applicationStatus',
+        'currentScreen',
+        'loanAmount',
+        'creditScore',
+        'createdAt',
+        'updatedAt',
+      ];
     case 'USER_PROFILE':
-      return ['userRole', 'userType', 'partnerCode'];
+      // These are standard user/session fields provided by the backend
+      // TODO: Fetch from backend API if these become configurable
+      return [
+        'userId',
+        'userRole',
+        'userType',
+        'partnerCode',
+        'branchCode',
+        'agentId',
+      ];
     default:
       return [];
   }

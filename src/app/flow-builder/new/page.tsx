@@ -43,6 +43,7 @@ import ValidationBanner from '@/components/flow-builder/ValidationBanner';
 import { FlowScreenConfig, NavigationCondition, FlowConfig, FlowValidationResult, BackendFlowConfig, DashboardMeta } from '@/types';
 import { validateFlow } from '@/lib/flow-validation';
 import { flowConfigApi } from '@/api/flowConfig.api';
+import { screenConfigApi } from '@/api/screenConfig.api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import DashboardMetaEditor from '@/components/flow-builder/DashboardMetaEditor';
@@ -1109,16 +1110,94 @@ function NewFlowPageContent() {
     screenName: s.screenName,
   })) || [];
 
-  const availableFields = [
-    'personalDetails.panNumber',
-    'personalDetails.name',
-    'income.monthly',
-    'income.employmentType',
-    'creditScore',
-    'loanAmount',
-  ];
+  // Fetch full screen configurations from backend to extract fields
+  const { data: fullScreenConfigs } = useQuery({
+    queryKey: ['screen-configs-full'],
+    queryFn: async () => {
+      try {
+        return await screenConfigApi.getAll();
+      } catch (error) {
+        console.error('Failed to fetch screen configs:', error);
+        return [];
+      }
+    },
+    staleTime: 60 * 1000, // 1 minute
+  });
 
-  const availableServices = ['bureau_check', 'fraud_check', 'income_verification'];
+  // Extract all field IDs from screens used in the current flow
+  const availableFields = useMemo(() => {
+    if (!fullScreenConfigs) return [];
+    
+    const fieldIds: string[] = [];
+    
+    // Get screen IDs used in the flow (screenConfigs is a Map)
+    const flowScreenIds = new Set(Array.from(screenConfigs.keys()));
+    
+    // Filter to only screens used in this flow
+    const relevantScreens = fullScreenConfigs.filter((sc) =>
+      flowScreenIds.has(sc.screenId)
+    );
+    
+    relevantScreens.forEach((screenConfig) => {
+      const sections = screenConfig.uiConfig?.sections || [];
+      sections.forEach((section: any) => {
+        // Fields directly in section
+        if (section.fields) {
+          section.fields.forEach((field: any) => {
+            fieldIds.push(field.id);
+          });
+        }
+        
+        // Fields in subsections
+        if (section.subsections) {
+          section.subsections.forEach((subsection: any) => {
+            if (subsection.fields) {
+              subsection.fields.forEach((field: any) => {
+                fieldIds.push(field.id);
+              });
+            }
+          });
+        }
+      });
+    });
+    
+    return [...new Set(fieldIds)]; // Remove duplicates
+  }, [fullScreenConfigs, screenConfigs]);
+
+  // Extract all service IDs from screens used in the current flow
+  const availableServices = useMemo(() => {
+    if (!fullScreenConfigs) return [];
+    
+    const serviceIds: string[] = [];
+    
+    // Get screen IDs used in the flow (screenConfigs is a Map)
+    const flowScreenIds = new Set(Array.from(screenConfigs.keys()));
+    
+    // Filter to only screens used in this flow
+    const relevantScreens = fullScreenConfigs.filter((sc) =>
+      flowScreenIds.has(sc.screenId)
+    );
+    
+    relevantScreens.forEach((screenConfig) => {
+      const uiConfig = screenConfig.uiConfig as any;
+      
+      // Check onLoad services
+      if (uiConfig?.lifecycleConfig?.onLoad?.services) {
+        uiConfig.lifecycleConfig.onLoad.services.forEach((service: any) => {
+          serviceIds.push(service.id);
+        });
+      }
+      
+      // Check onSubmit services
+      if (uiConfig?.lifecycleConfig?.onSubmit?.services) {
+        uiConfig.lifecycleConfig.onSubmit.services.forEach((service: any) => {
+          serviceIds.push(service.id);
+        });
+      }
+    });
+    
+    return [...new Set(serviceIds)]; // Remove duplicates
+  }, [fullScreenConfigs, screenConfigs]);
 
   return (
     <ProtectedRoute requiresEdit>

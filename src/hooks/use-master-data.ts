@@ -1,53 +1,73 @@
 import { useQuery } from '@tanstack/react-query';
 import { Partner, Branch, Product, Screen } from '@/types';
-import { mockMasterData } from '@/lib/mock-api';
 import { screenConfigApi } from '@/api/screenConfig.api';
+import { apiClient } from '@/lib/api-client';
+import { MASTER_DATA_ENDPOINTS } from '@/lib/api-endpoints';
 
-// Mock delay for realistic loading (only for partners/branches/products that don't have backend yet)
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// Interface for the master data response from backend
+interface MasterDataResponse {
+  partners: Partner[];
+  branches: Branch[];
+  products: Product[];
+}
 
-// Hook to fetch partners
-export const usePartners = () => {
-  return useQuery<Partner[]>({
-    queryKey: ['partners'],
+// Hook to fetch all master data from backend (shared query)
+const useAllMasterData = () => {
+  return useQuery<MasterDataResponse>({
+    queryKey: ['master-data-all'],
     queryFn: async () => {
-      await delay(500);
-      // TODO: Replace with actual API call when backend endpoint is available
-      // return apiClient.get<Partner[]>(MASTER_DATA_ENDPOINTS.PARTNERS);
-      return mockMasterData.partners;
+      try {
+        const data = await apiClient.get<MasterDataResponse>(MASTER_DATA_ENDPOINTS.GET_ALL);
+        return data;
+      } catch (error) {
+        console.error('Failed to fetch master data from backend:', error);
+        // Return empty arrays if backend endpoint not available yet
+        return {
+          partners: [],
+          branches: [],
+          products: [],
+        };
+      }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
 
-// Hook to fetch branches
-export const useBranches = (partnerCode?: string) => {
-  return useQuery<Branch[]>({
-    queryKey: ['branches', partnerCode],
-    queryFn: async () => {
-      await delay(500);
-      // TODO: Replace with actual API call when backend endpoint is available
-      const allBranches = mockMasterData.branches;
-      return partnerCode
-        ? allBranches.filter((b) => b.partnerCode === partnerCode)
-        : allBranches;
-    },
-    staleTime: 5 * 60 * 1000,
-    enabled: partnerCode !== undefined || !partnerCode,
-  });
+// Hook to fetch partners from backend
+export const usePartners = () => {
+  const { data, isLoading, error } = useAllMasterData();
+  
+  return {
+    data: data?.partners || [],
+    isLoading,
+    error,
+  };
 };
 
-// Hook to fetch products
+// Hook to fetch branches from backend
+export const useBranches = (partnerCode?: string) => {
+  const { data, isLoading, error } = useAllMasterData();
+  
+  const filteredBranches = partnerCode
+    ? (data?.branches || []).filter((b) => b.partnerCode === partnerCode)
+    : (data?.branches || []);
+  
+  return {
+    data: filteredBranches,
+    isLoading,
+    error,
+  };
+};
+
+// Hook to fetch products from backend
 export const useProducts = () => {
-  return useQuery<Product[]>({
-    queryKey: ['products'],
-    queryFn: async () => {
-      await delay(500);
-      // TODO: Replace with actual API call when backend endpoint is available
-      return mockMasterData.products;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data, isLoading, error } = useAllMasterData();
+  
+  return {
+    data: data?.products || [],
+    isLoading,
+    error,
+  };
 };
 
 // Hook to fetch all screens from backend

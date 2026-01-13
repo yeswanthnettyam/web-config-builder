@@ -56,6 +56,7 @@ export const MAPPING_ENDPOINTS = {
 
 // Master Data APIs
 export const MASTER_DATA_ENDPOINTS = {
+  GET_ALL: '/master-data', // Single endpoint that returns all master data
   PARTNERS: '/master-data/partners',
   BRANCHES: '/master-data/branches',
   PRODUCTS: '/master-data/products',

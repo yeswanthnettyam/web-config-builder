@@ -590,7 +590,7 @@ export default function NodeConfigPanel({
       </Typography>
 
       {sortedConditions.map((condition, index) => {
-        const targetScreen = availableScreens.find((s) => s.screenId === condition.action.targetScreen);
+        const targetScreen = availableScreens.find((s) => s.screenId === condition.action?.targetScreen);
         return (
           <Paper key={condition.id} sx={{ padding: 2, marginBottom: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 1 }}>
@@ -601,7 +601,7 @@ export default function NodeConfigPanel({
                   color={condition.priority === 1 ? 'warning' : 'default'}
                 />
                 <Typography variant="body2" fontWeight="medium">
-                  {targetScreen?.screenName || condition.action.targetScreen || 'Unknown'}
+                  {targetScreen?.screenName || condition.action?.targetScreen || condition.action?.type || 'Unknown'}
                 </Typography>
               </Box>
               <Box>
