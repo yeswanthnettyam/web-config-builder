@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
   TextField,
@@ -29,11 +29,14 @@ import { FlowScreenConfig, ServiceCall, NavigationCondition } from '@/types';
 import ServiceConfigModal from './ServiceConfigModal';
 import ConditionBuilder from './ConditionBuilder';
 import toast from 'react-hot-toast';
+import { useQuery } from '@tanstack/react-query';
+import { screenConfigApi } from '@/api/screenConfig.api';
+import { BackendScreenConfig } from '@/types';
 
 interface NodeConfigPanelProps {
   screen: FlowScreenConfig;
   availableScreens: Array<{ screenId: string; screenName: string }>;
-  availableFields?: string[];
+  availableFields?: string[]; // Deprecated: will be replaced by screen-specific fields
   availableServices?: string[];
   onChange: (screen: FlowScreenConfig) => void;
   onSave?: () => void; // Optional callback to close panel after save
@@ -47,6 +50,69 @@ export default function NodeConfigPanel({
   onChange,
   onSave,
 }: NodeConfigPanelProps) {
+  // Fetch screen config for the current node's screenId to get its fields
+  // This ensures conditions use fields from the correct screen context
+  const { data: screenConfig, isLoading: isLoadingScreenConfig } = useQuery<BackendScreenConfig | null>({
+    queryKey: ['screen-config-by-screenId', screen.screenId],
+    queryFn: async () => {
+      try {
+        // Fetch all screen configs and find the ACTIVE one for this screenId
+        const allConfigs = await screenConfigApi.getAll();
+        const activeConfig = allConfigs.find(
+          (config) => config.screenId === screen.screenId && config.status === 'ACTIVE'
+        );
+        return activeConfig || null;
+      } catch (error) {
+        console.error(`Failed to fetch screen config for screenId: ${screen.screenId}`, error);
+        return null;
+      }
+    },
+    enabled: !!screen.screenId,
+    staleTime: 60 * 1000, // 1 minute
+  });
+
+  // Extract fields from the current screen's config
+  const screenFields = useMemo(() => {
+    if (!screenConfig?.uiConfig) return [];
+    
+    const fields: Array<{ fieldId: string; label: string; type: string }> = [];
+    const sections = (screenConfig.uiConfig as any)?.sections || [];
+    
+    sections.forEach((section: any) => {
+      // Fields directly in section
+      if (section.fields && Array.isArray(section.fields)) {
+        section.fields.forEach((field: any) => {
+          fields.push({
+            fieldId: field.id || '',
+            label: field.label || field.id || '',
+            type: field.type || 'TEXT',
+          });
+        });
+      }
+      
+      // Fields in subsections
+      if (section.subsections && Array.isArray(section.subsections)) {
+        section.subsections.forEach((subsection: any) => {
+          if (subsection.fields && Array.isArray(subsection.fields)) {
+            subsection.fields.forEach((field: any) => {
+              fields.push({
+                fieldId: field.id || '',
+                label: field.label || field.id || '',
+                type: field.type || 'TEXT',
+              });
+            });
+          }
+        });
+      }
+    });
+    
+    return fields;
+  }, [screenConfig]);
+
+  // Convert to simple field ID array for backward compatibility with ConditionBuilder
+  const currentScreenFieldIds = useMemo(() => {
+    return screenFields.map(f => f.fieldId).filter(Boolean);
+  }, [screenFields]);
   // Use local state to track changes
   const [localScreen, setLocalScreen] = useState<FlowScreenConfig>({
     ...screen,
@@ -429,7 +495,7 @@ export default function NodeConfigPanel({
       return updatedScreen;
     });
     
-    setEditingCondition(null);
+    // Note: Modal handles closing itself after save
     console.log('✅ ========== handleSaveCondition END ==========');
   };
 
@@ -706,7 +772,7 @@ export default function NodeConfigPanel({
           onClose={() => setEditingService(null)}
           onSave={handleSaveService}
           service={editingService.service}
-          availableFields={availableFields}
+          availableFields={currentScreenFieldIds}
         />
       )}
 
@@ -717,8 +783,11 @@ export default function NodeConfigPanel({
           onSave={handleSaveCondition}
           condition={editingCondition}
           availableScreens={availableScreens}
-          availableFields={availableFields}
+          availableFields={currentScreenFieldIds}
           availableServices={availableServices}
+          screenName={screen.displayName || screen.screenId}
+          isLoadingFields={isLoadingScreenConfig}
+          hasNoFields={!isLoadingScreenConfig && screenFields.length === 0}
         />
       )}
     </Box>
@@ -733,6 +802,9 @@ interface ConditionEditorModalProps {
   availableScreens: Array<{ screenId: string; screenName: string }>;
   availableFields?: string[];
   availableServices?: string[];
+  screenName?: string;
+  isLoadingFields?: boolean;
+  hasNoFields?: boolean;
 }
 
 function ConditionEditorModal({
@@ -743,6 +815,9 @@ function ConditionEditorModal({
   availableScreens,
   availableFields = [],
   availableServices = [],
+  screenName = 'this screen',
+  isLoadingFields = false,
+  hasNoFields = false,
 }: ConditionEditorModalProps) {
   const [formData, setFormData] = useState<NavigationCondition>(condition);
 
@@ -755,6 +830,13 @@ function ConditionEditorModal({
 
   const handleSave = () => {
     onSave(formData);
+    onClose(); // Close modal after save
+  };
+  
+  const handleCancel = () => {
+    // Reset form data to original condition before closing
+    setFormData(condition);
+    onClose();
   };
 
   return (
@@ -772,7 +854,7 @@ function ConditionEditorModal({
         justifyContent: 'center',
         padding: 3,
       }}
-      onClick={onClose}
+      onClick={handleCancel}
     >
       <Box
         sx={{
@@ -808,7 +890,7 @@ function ConditionEditorModal({
           value={formData.priority}
           onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 1 })}
           sx={{ marginBottom: 2 }}
-          helperText="Higher priority = earlier evaluation"
+          helperText="Lower number = higher priority (evaluated first). Priority 1 is evaluated before Priority 2."
         />
 
         <FormControlLabel
@@ -833,6 +915,9 @@ function ConditionEditorModal({
           onChange={(cond) => setFormData({ ...formData, condition: cond })}
           availableFields={availableFields}
           availableServices={availableServices}
+          screenName={screenName}
+          isLoadingFields={isLoadingFields}
+          hasNoFields={hasNoFields}
         />
 
         <Divider sx={{ marginY: 2 }} />
@@ -884,8 +969,10 @@ function ConditionEditorModal({
         )}
 
         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', marginTop: 3 }}>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained">
+          <Button onClick={handleCancel} variant="outlined">
+            Cancel
+          </Button>
+          <Button onClick={handleSave} variant="contained" color="primary">
             Save Condition
           </Button>
         </Box>

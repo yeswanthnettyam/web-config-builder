@@ -25,6 +25,9 @@ interface ConditionBuilderProps {
   onChange: (condition: FlowConditionExpression) => void;
   availableFields?: string[];
   availableServices?: string[];
+  screenName?: string;
+  isLoadingFields?: boolean;
+  hasNoFields?: boolean;
 }
 
 export default function ConditionBuilder({
@@ -32,6 +35,9 @@ export default function ConditionBuilder({
   onChange,
   availableFields = [],
   availableServices = [],
+  screenName,
+  isLoadingFields = false,
+  hasNoFields = false,
 }: ConditionBuilderProps) {
   const [logicType, setLogicType] = useState<'single' | 'AND' | 'OR'>(
     condition.logicOperator || 'single'
@@ -123,6 +129,9 @@ export default function ConditionBuilder({
                   onChange={(updated) => handleConditionChange(index, updated)}
                   availableFields={availableFields}
                   availableServices={availableServices}
+                  screenName={screenName}
+                  isLoadingFields={isLoadingFields}
+                  hasNoFields={hasNoFields}
                 />
               </Paper>
             ) : (
@@ -133,6 +142,9 @@ export default function ConditionBuilder({
                 availableServices={availableServices}
                 onRemove={() => handleRemoveCondition(index)}
                 showRemove={condition.conditions!.length > 1}
+                screenName={screenName}
+                isLoadingFields={isLoadingFields}
+                hasNoFields={hasNoFields}
               />
             )}
             {index < condition.conditions!.length - 1 && (
@@ -198,6 +210,9 @@ export default function ConditionBuilder({
         onChange={onChange}
         availableFields={availableFields}
         availableServices={availableServices}
+        screenName={screenName}
+        isLoadingFields={isLoadingFields}
+        hasNoFields={hasNoFields}
       />
     </Box>
   );
@@ -210,6 +225,9 @@ interface SingleConditionEditorProps {
   availableServices?: string[];
   onRemove?: () => void;
   showRemove?: boolean;
+  screenName?: string;
+  isLoadingFields?: boolean;
+  hasNoFields?: boolean;
 }
 
 function SingleConditionEditor({
@@ -219,6 +237,9 @@ function SingleConditionEditor({
   availableServices = [],
   onRemove,
   showRemove = false,
+  screenName,
+  isLoadingFields = false,
+  hasNoFields = false,
 }: SingleConditionEditorProps) {
   const isCustomCode = condition.source === 'CUSTOM_CODE';
 
@@ -327,12 +348,30 @@ function SingleConditionEditor({
           value={condition.field || ''}
           onChange={(e) => onChange({ ...condition, field: e.target.value })}
           sx={{ marginBottom: 2 }}
-          helperText="Select the field to evaluate in this condition"
+          disabled={isLoadingFields || hasNoFields}
+          helperText={
+            isLoadingFields
+              ? `Loading fields from ${screenName || 'screen'}...`
+              : hasNoFields
+              ? `No fields configured for ${screenName || 'this screen'}. Please add fields in Screen Builder first.`
+              : screenName
+              ? `Select a field from ${screenName}`
+              : 'Select the field to evaluate in this condition'
+          }
+          error={hasNoFields}
         >
-          <MenuItem value="">
-            <em>Select a field</em>
+          <MenuItem value="" disabled={isLoadingFields || hasNoFields}>
+            <em>
+              {isLoadingFields
+                ? 'Loading fields...'
+                : hasNoFields
+                ? 'No fields available'
+                : screenName
+                ? `Select a field from ${screenName}`
+                : 'Select a field'}
+            </em>
           </MenuItem>
-          {getFieldsForSource(condition.source, availableFields, availableServices).map(
+          {!isLoadingFields && !hasNoFields && getFieldsForSource(condition.source, availableFields, availableServices).map(
             (field) => (
               <MenuItem key={field} value={field}>
                 {field}

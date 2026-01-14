@@ -89,6 +89,8 @@ export default function FlowBuilderPage() {
     },
   });
 
+  const isDeleting = deleteMutation.isPending;
+
   // Filter flows based on selected criteria
   const filteredFlows = flows.filter(flow => {
     if (filters.partnerCode) {
@@ -191,8 +193,8 @@ export default function FlowBuilderPage() {
       options: [
         { value: '', label: 'All Partners' },
         ...(partners?.map((p) => ({
-          value: p.partnerCode,
-          label: p.partnerName,
+          value: p.code,
+          label: p.name,
         })) || []),
       ],
     },
@@ -204,8 +206,8 @@ export default function FlowBuilderPage() {
       options: [
         { value: '', label: 'All Products' },
         ...(products?.map((p) => ({
-          value: p.productCode,
-          label: p.productName,
+          value: p.code,
+          label: p.name,
         })) || []),
       ],
     },
@@ -353,14 +355,12 @@ export default function FlowBuilderPage() {
             </ListItemIcon>
             <ListItemText>Clone</ListItemText>
           </MenuItem>
-          {selectedFlow?.status === 'DRAFT' && (
-            <MenuItem onClick={handleDelete}>
-              <ListItemIcon>
-                <Delete fontSize="small" color="error" />
-              </ListItemIcon>
-              <ListItemText>Delete</ListItemText>
-            </MenuItem>
-          )}
+          <MenuItem onClick={handleDelete} sx={{ color: 'error.main' }}>
+            <ListItemIcon>
+              <Delete fontSize="small" color="error" />
+            </ListItemIcon>
+            <ListItemText>Delete</ListItemText>
+          </MenuItem>
         </Menu>
 
         {/* Activate Confirmation Dialog */}
@@ -373,15 +373,42 @@ export default function FlowBuilderPage() {
           isLoading={isActivating}
         />
 
-        {/* Delete Confirmation Dialog */}
+        {/* Delete Confirmation Dialog with Caution */}
         <ConfirmDialog
           open={deleteDialogOpen}
-          title="Delete Flow"
-          message={`Are you sure you want to delete the flow "${selectedFlow?.flowId}"? This action cannot be undone.`}
-          confirmLabel="Delete"
+          title="⚠️ Delete Flow - Warning"
+          message={
+            selectedFlow?.status === 'ACTIVE'
+              ? `⚠️ CAUTION: You are about to delete an ACTIVE flow "${selectedFlow?.flowId}".\n\n` +
+                `This flow is currently being used in production. Deleting it will:\n` +
+                `• Immediately stop all new applications from using this flow\n` +
+                `• Break existing applications that reference this flow\n` +
+                `• Cause runtime errors for in-progress loan applications\n` +
+                `• This action CANNOT be undone\n\n` +
+                `Are you absolutely sure you want to proceed?`
+              : selectedFlow?.status === 'DEPRECATED'
+              ? `⚠️ CAUTION: You are about to delete a DEPRECATED flow "${selectedFlow?.flowId}".\n\n` +
+                `This flow may still be referenced by historical data. Deleting it will:\n` +
+                `• Remove all historical references to this flow\n` +
+                `• Break audit trails and reporting\n` +
+                `• This action CANNOT be undone\n\n` +
+                `Are you sure you want to proceed?`
+              : `⚠️ CAUTION: You are about to delete the flow "${selectedFlow?.flowId}".\n\n` +
+                `This action will:\n` +
+                `• Permanently remove this flow configuration\n` +
+                `• Delete all associated flow data\n` +
+                `• This action CANNOT be undone\n\n` +
+                `Are you sure you want to proceed?`
+          }
+          confirmLabel="Yes, Delete Permanently"
+          cancelLabel="Cancel"
           onConfirm={handleConfirmDelete}
-          onCancel={() => setDeleteDialogOpen(false)}
+          onCancel={() => {
+            setDeleteDialogOpen(false);
+            setSelectedFlow(null);
+          }}
           severity="error"
+          isLoading={isDeleting}
         />
 
         {/* View Configuration Dialog */}

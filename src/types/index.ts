@@ -679,22 +679,22 @@ export interface FlowValidationResult {
 // ============================================
 
 export interface Partner {
-  partnerCode: string;
-  partnerName: string;
-  active: boolean;
+  code: string;
+  name: string;
+  active?: boolean;
 }
 
 export interface Branch {
-  branchCode: string;
-  branchName: string;
+  code: string;
+  name: string;
   partnerCode: string;
-  active: boolean;
+  active?: boolean;
 }
 
 export interface Product {
-  productCode: string;
-  productName: string;
-  active: boolean;
+  code: string;
+  name: string;
+  active?: boolean;
 }
 
 export interface Screen {

@@ -250,8 +250,8 @@ export default function ScreenBuilderPage() {
       options: [
         { value: '', label: 'All Partners' },
         ...(partners?.map((p) => ({
-          value: p.partnerCode,
-          label: p.partnerName,
+          value: p.code,
+          label: p.name,
         })) || []),
       ],
     },

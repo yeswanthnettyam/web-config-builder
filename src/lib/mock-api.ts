@@ -45,40 +45,40 @@ export const mockUsers: User[] = [
   },
 ];
 
-// Mock Partners
+// Mock Partners (for backwards compatibility with mock data)
 export const mockPartners: Partner[] = [
-  { partnerCode: 'PARTNER_001', partnerName: 'Partner One', active: true },
-  { partnerCode: 'PARTNER_002', partnerName: 'Partner Two', active: true },
-  { partnerCode: 'PARTNER_003', partnerName: 'Partner Three', active: false },
+  { code: 'PARTNER_001', name: 'Partner One', active: true },
+  { code: 'PARTNER_002', name: 'Partner Two', active: true },
+  { code: 'PARTNER_003', name: 'Partner Three', active: false },
 ];
 
-// Mock Branches
+// Mock Branches (for backwards compatibility with mock data)
 export const mockBranches: Branch[] = [
   {
-    branchCode: 'BRANCH_001',
-    branchName: 'Main Branch',
+    code: 'BRANCH_001',
+    name: 'Main Branch',
     partnerCode: 'PARTNER_001',
     active: true,
   },
   {
-    branchCode: 'BRANCH_002',
-    branchName: 'Secondary Branch',
+    code: 'BRANCH_002',
+    name: 'Secondary Branch',
     partnerCode: 'PARTNER_001',
     active: true,
   },
   {
-    branchCode: 'BRANCH_003',
-    branchName: 'Partner Two Branch',
+    code: 'BRANCH_003',
+    name: 'Partner Two Branch',
     partnerCode: 'PARTNER_002',
     active: true,
   },
 ];
 
-// Mock Products
+// Mock Products (for backwards compatibility with mock data)
 export const mockProducts: Product[] = [
-  { productCode: 'PL', productName: 'Personal Loan', active: true },
-  { productCode: 'BL', productName: 'Business Loan', active: true },
-  { productCode: 'HL', productName: 'Home Loan', active: true },
+  { code: 'PL', name: 'Personal Loan', active: true },
+  { code: 'BL', name: 'Business Loan', active: true },
+  { code: 'HL', name: 'Home Loan', active: true },
 ];
 
 // Mock Screens - This will be dynamically populated from screen configs

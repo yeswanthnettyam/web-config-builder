@@ -175,8 +175,8 @@ export default function ConfigListPage() {
       options: [
         { value: '', label: 'All Products' },
         ...(products?.map((p) => ({
-          value: p.productCode,
-          label: p.productName,
+          value: p.code,
+          label: p.name,
         })) || []),
       ],
     },
@@ -188,8 +188,8 @@ export default function ConfigListPage() {
       options: [
         { value: '', label: 'All Partners' },
         ...(partners?.map((p) => ({
-          value: p.partnerCode,
-          label: p.partnerName,
+          value: p.code,
+          label: p.name,
         })) || []),
       ],
     },
@@ -201,8 +201,8 @@ export default function ConfigListPage() {
       options: [
         { value: '', label: 'All Branches' },
         ...(branches?.map((b) => ({
-          value: b.branchCode,
-          label: b.branchName,
+          value: b.code,
+          label: b.name,
         })) || []),
       ],
     },

@@ -487,9 +487,11 @@ function NewFlowPageContent() {
       // Condition-based edges
       if (config.conditions && config.conditions.length > 0) {
         console.log(`🔀 Found ${config.conditions.length} conditions for screen ${screenId}`);
+        // CRITICAL: Sort by priority ASCENDING (lower number = higher priority)
+        // Priority 1 is evaluated before Priority 2
         const sortedConditions = [...config.conditions]
           .filter((c) => c.enabled !== false) // Include if enabled is true or undefined
-          .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+          .sort((a, b) => (a.priority || 0) - (b.priority || 0));
 
         console.log(`✅ ${sortedConditions.length} enabled conditions after filtering`);
 

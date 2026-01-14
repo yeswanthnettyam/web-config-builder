@@ -147,8 +147,8 @@ export function FlowScopeSelector({
               <InputLabel>Product</InputLabel>
               <Select {...field} label="Product" disabled={readOnly || productsLoading}>
                 {products?.map((product) => (
-                  <MenuItem key={product.productCode} value={product.productCode}>
-                    {product.productName} ({product.productCode})
+                  <MenuItem key={product.code} value={product.code}>
+                    {product.name} ({product.code})
                   </MenuItem>
                 ))}
               </Select>
@@ -181,8 +181,8 @@ export function FlowScopeSelector({
               <InputLabel>Partner</InputLabel>
               <Select {...field} label="Partner" disabled={readOnly || partnersLoading}>
                 {partners?.map((partner) => (
-                  <MenuItem key={partner.partnerCode} value={partner.partnerCode}>
-                    {partner.partnerName} ({partner.partnerCode})
+                  <MenuItem key={partner.code} value={partner.code}>
+                    {partner.name} ({partner.code})
                   </MenuItem>
                 ))}
               </Select>

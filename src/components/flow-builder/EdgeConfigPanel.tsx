@@ -118,7 +118,7 @@ export default function EdgeConfigPanel({
         value={formData.priority}
         onChange={(e) => handleFieldChange('priority', parseInt(e.target.value) || 1)}
         sx={{ marginBottom: 3 }}
-        helperText="Higher = earlier evaluation"
+        helperText="Lower number = higher priority (evaluated first). Priority 1 is evaluated before Priority 2."
       />
 
       <Divider sx={{ marginY: 2 }} />
