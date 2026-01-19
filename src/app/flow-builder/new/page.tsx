@@ -40,6 +40,7 @@ import RightPanel from '@/components/flow-builder/RightPanel';
 import NodeConfigPanel from '@/components/flow-builder/NodeConfigPanel';
 import EdgeConfigPanel from '@/components/flow-builder/EdgeConfigPanel';
 import ValidationBanner from '@/components/flow-builder/ValidationBanner';
+import FlowSequencePanel from '@/components/flow-builder/FlowSequencePanel';
 import { FlowScreenConfig, NavigationCondition, FlowConfig, FlowValidationResult, BackendFlowConfig, DashboardMeta } from '@/types';
 import { validateFlow } from '@/lib/flow-validation';
 import { flowConfigApi } from '@/api/flowConfig.api';
@@ -174,6 +175,7 @@ function NewFlowPageContent() {
   });
 
   // Screen configurations - map of screenId to FlowScreenConfig
+  // IMPORTANT: This Map now contains ONLY screens that are part of the flow sequence
   const [screenConfigs, setScreenConfigs] = useState<Map<string, FlowScreenConfig>>(new Map());
   // Edge conditions - map of edgeId to NavigationCondition
   const [edgeConditions, setEdgeConditions] = useState<Map<string, NavigationCondition>>(new Map());
@@ -247,10 +249,18 @@ function NewFlowPageContent() {
       }
       
       // Populate screen configs from the flow
+      // BACKWARD COMPATIBILITY: If screens don't have order, derive it from array index
       const configMap = new Map<string, FlowScreenConfig>();
       if (flowDefinition?.screens) {
-        flowDefinition.screens.forEach((screenConfig: FlowScreenConfig) => {
-          configMap.set(screenConfig.screenId, screenConfig);
+        flowDefinition.screens.forEach((screenConfig: any, index: number) => {
+          // Ensure order and required are set (backward compatibility)
+          const config: FlowScreenConfig = {
+            ...screenConfig,
+            order: screenConfig.order ?? index + 1,
+            required: screenConfig.required ?? (index === 0), // First screen defaults to required
+            conditions: screenConfig.conditions || [],
+          };
+          configMap.set(screenConfig.screenId, config);
         });
       }
       setScreenConfigs(configMap);
@@ -262,77 +272,39 @@ function NewFlowPageContent() {
     }
   }, [existingFlow, configuredScreens, reset, cloneId, router]);
 
-  // Initialize screen configs when screens are loaded (only if not editing/cloning)
-  useEffect(() => {
-    if (configuredScreens && configuredScreens.length > 0 && !flowIdToLoad) {
-      console.log('🔄 Initializing screen configs. Current screenConfigs size:', screenConfigs.size);
-      setScreenConfigs((prev) => {
-        const newMap = new Map(prev);
-        let hasChanges = false;
-        
-        configuredScreens.forEach((screen, index) => {
-          // Only initialize if screen doesn't exist
-          // ALWAYS preserve existing conditions and other config if screen already exists
-          if (!newMap.has(screen.screenId)) {
-            console.log(`➕ Adding new screen config for: ${screen.screenId}`);
-            newMap.set(screen.screenId, {
-              screenId: screen.screenId,
-              displayName: screen.screenName,
-              defaultNext: configuredScreens[index + 1]?.screenId || '',
-              conditions: [],
-            });
-            hasChanges = true;
-          } else {
-            // Screen already exists - preserve ALL existing data, only update displayName if it changed
-            const existing = newMap.get(screen.screenId);
-            if (existing) {
-              console.log(`📋 Preserving existing config for: ${screen.screenId}`);
-              console.log(`📋 Existing conditions count: ${existing.conditions?.length || 0}`);
-              
-              // Only update if displayName changed, preserve everything else including conditions
-              if (existing.displayName !== screen.screenName) {
-                newMap.set(screen.screenId, {
-                  ...existing, // Preserve ALL existing data including conditions
-                  displayName: screen.screenName, // Only update display name
-                });
-                hasChanges = true;
-              }
-              // If displayName is the same, don't update at all to preserve conditions
-            }
-          }
-        });
-        
-        if (hasChanges) {
-          console.log('✅ Screen configs initialized/updated');
-          console.log('✅ Final screenConfigs:', Array.from(newMap.entries()).map(([id, cfg]) => ({
-            id,
-            conditionsCount: cfg.conditions?.length || 0,
-          })));
-        }
-        
-        return newMap;
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configuredScreens, flowIdToLoad]); // Don't include screenConfigs.size in deps to avoid infinite loop
+  // NOTE: We no longer auto-initialize all screens into the flow
+  // Users must explicitly add screens via FlowSequencePanel
 
-  // Initialize nodes from configured screens - only show screens from screen config builder
+  // Initialize nodes from flow screens - only show screens IN THE FLOW
   const initialNodes: Node[] = useMemo(() => {
-    console.log('📊 Computing initialNodes from configuredScreens:', configuredScreens);
-    // Only show screens that are configured in the screen config builder module
-    if (!configuredScreens || configuredScreens.length === 0) {
-      console.log('⚠️ No configured screens found, returning empty nodes array');
-      return []; // Return empty array instead of static screens
+    console.log('📊 Computing initialNodes from flow screens:', Array.from(screenConfigs.values()));
+    
+    // Only show screens that are part of the flow sequence
+    const flowScreens = Array.from(screenConfigs.values()).sort((a, b) => {
+      const orderA = a.order ?? 999;
+      const orderB = b.order ?? 999;
+      return orderA - orderB;
+    });
+
+    if (flowScreens.length === 0) {
+      console.log('⚠️ No screens in flow, returning empty nodes array');
+      return [];
     }
 
-    const nodes = configuredScreens.map((screen, index) => {
+    const nodes = flowScreens.map((screen, index) => {
       const isStart = screen.screenId === formValues.startScreen;
-      const isLast = index === configuredScreens.length - 1;
+      const isLast = index === flowScreens.length - 1;
+      const isRequired = screen.required ?? (index === 0);
 
       return {
         id: screen.screenId,
         type: isStart ? 'input' : isLast ? 'output' : 'default',
-        data: { label: screen.screenName, screenId: screen.screenId },
+        data: { 
+          label: screen.displayName || screen.screenId, 
+          screenId: screen.screenId,
+          order: screen.order ?? index + 1,
+          required: isRequired,
+        },
         position: {
           x: 250 + (index % 3) * 150,
           y: Math.floor(index / 3) * 150,
@@ -341,35 +313,21 @@ function NewFlowPageContent() {
           ? { background: '#0B2F70', color: 'white', border: '2px solid #0B2F70' }
           : isLast
           ? { background: '#2E7D32', color: 'white', border: '2px solid #2E7D32' }
-          : { background: '#00B2FF', color: 'white' },
+          : isRequired
+          ? { background: '#00B2FF', color: 'white', border: '2px solid #00B2FF' }
+          : { background: '#9E9E9E', color: 'white', border: '1px dashed #9E9E9E' }, // Grey for optional
       };
     });
     
     console.log('✅ Generated nodes:', nodes);
     return nodes;
-  }, [configuredScreens, formValues.startScreen]);
+  }, [screenConfigs, formValues.startScreen]);
 
   const initialEdges: Edge[] = useMemo(() => {
-    // Only create edges for configured screens - no static fallback
-    if (!configuredScreens || configuredScreens.length === 0) {
-      return []; // Return empty array instead of static edges
-    }
-
-    // Initial sequential edges (will be replaced by buildEdgesFromConfigs when configs are set)
-    const edges: Edge[] = [];
-    for (let i = 0; i < configuredScreens.length - 1; i++) {
-      const source = configuredScreens[i].screenId;
-      const target = configuredScreens[i + 1].screenId;
-      edges.push({
-        id: `e-${source}-${target}`,
-        source,
-        target,
-        label: 'Next',
-        animated: true,
-      });
-    }
-    return edges;
-  }, [configuredScreens]);
+    // Edges are built from screenConfigs by buildEdgesFromConfigs
+    // Return empty array here, edges will be populated by useEffect
+    return [];
+  }, []);
 
   // State for nodes and edges (must be declared before callbacks that use them)
   // Update nodes and edges when initialNodes/initialEdges change
@@ -757,16 +715,15 @@ function NewFlowPageContent() {
     if (!formValues.startScreen) {
       errors.push('Start screen is required');
     } else {
-      const availableScreenIds = configuredScreens?.map((s) => s.screenId) || [];
-      if (!availableScreenIds.includes(formValues.startScreen)) {
-        errors.push(`Start screen "${formValues.startScreen}" not found in available screens`);
+      const flowScreenIds = Array.from(screenConfigs.keys());
+      if (!flowScreenIds.includes(formValues.startScreen)) {
+        errors.push(`Start screen "${formValues.startScreen}" is not in the flow sequence. Add it using the Flow Screens panel.`);
       }
-      
-      // Check if start screen is configured in screenConfigs
-      const startScreenConfig = screenConfigs.get(formValues.startScreen);
-      if (!startScreenConfig) {
-        errors.push(`Start screen "${formValues.startScreen}" is not configured in flow`);
-      }
+    }
+
+    // 1.5. Validate Flow Sequence (MANDATORY)
+    if (screenConfigs.size === 0) {
+      errors.push('Flow must have at least one screen. Add screens using the Flow Screens panel.');
     }
 
     // 2. Validate End Screen (MANDATORY) - At least one screen should have __FLOW_END__
@@ -876,12 +833,26 @@ function NewFlowPageContent() {
     
     // Note: Conditions are optional, so we don't warn about missing conditions
 
-    // Optional: Check for invalid screen references (warning)
+    // Validate that conditions only reference screens in the flow
+    const flowScreenIds = Array.from(screenConfigs.keys());
     screenConfigs.forEach((config) => {
+      // Check defaultNext references
       if (config.defaultNext && config.defaultNext !== '__FLOW_END__') {
-        if (!availableScreenIds.includes(config.defaultNext)) {
-          warnings.push(`Screen "${config.screenId}" has invalid defaultNext: "${config.defaultNext}" (optional)`);
+        if (!flowScreenIds.includes(config.defaultNext)) {
+          errors.push(`Screen "${config.screenId}" has defaultNext "${config.defaultNext}" which is not in the flow sequence. Remove the screen from conditions or add it to the flow.`);
         }
+      }
+
+      // Check condition target screens
+      if (config.conditions && Array.isArray(config.conditions)) {
+        config.conditions.forEach((cond, idx) => {
+          const targetScreen = cond.action?.targetScreen;
+          if (targetScreen && targetScreen !== '__FLOW_END__') {
+            if (!flowScreenIds.includes(targetScreen)) {
+              errors.push(`Screen "${config.screenId}" condition ${idx + 1} references "${targetScreen}" which is not in the flow sequence. Remove the condition or add the screen to the flow.`);
+            }
+          }
+        });
       }
     });
 
@@ -909,6 +880,128 @@ function NewFlowPageContent() {
     }
   }, [formValues, configuredScreens, screenConfigs, flowStatus]);
 
+  // Handler: Add screen to flow
+  const handleAddScreen = useCallback((screenId: string) => {
+    const screen = configuredScreens?.find((s) => s.screenId === screenId);
+    if (!screen) return;
+
+    setScreenConfigs((prev) => {
+      const newMap = new Map(prev);
+      
+      // Only add if not already in flow
+      if (!newMap.has(screenId)) {
+        const currentOrder = Array.from(newMap.values()).length;
+        newMap.set(screenId, {
+          screenId: screen.screenId,
+          displayName: screen.screenName,
+          defaultNext: '',
+          conditions: [],
+          order: currentOrder + 1,
+          required: currentOrder === 0, // First screen defaults to required
+        });
+      }
+      
+      return newMap;
+    });
+  }, [configuredScreens]);
+
+  // Handler: Remove screen from flow
+  const handleRemoveScreen = useCallback((screenId: string) => {
+    setScreenConfigs((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(screenId);
+      
+      // Reorder remaining screens
+      const remaining = Array.from(newMap.values()).sort((a, b) => {
+        const orderA = a.order ?? 999;
+        const orderB = b.order ?? 999;
+        return orderA - orderB;
+      });
+      
+      // Update order values
+      remaining.forEach((screen, index) => {
+        newMap.set(screen.screenId, {
+          ...screen,
+          order: index + 1,
+        });
+      });
+      
+      return newMap;
+    });
+
+    // Remove all edges connected to this screen
+    setEdges((eds) => eds.filter((e) => e.source !== screenId && e.target !== screenId));
+    setEdgeConditions((conds) => {
+      const newMap = new Map(conds);
+      Array.from(conds.keys()).forEach((edgeId) => {
+        const edge = edges.find((e) => e.id === edgeId);
+        if (edge && (edge.source === screenId || edge.target === screenId)) {
+          newMap.delete(edgeId);
+        }
+      });
+      return newMap;
+    });
+
+    // Update start screen if it was removed
+    if (formValues.startScreen === screenId) {
+      const remainingScreens = Array.from(screenConfigs.values())
+        .filter((s) => s.screenId !== screenId)
+        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+      if (remainingScreens.length > 0) {
+        // Reset form to use first remaining screen
+        const newStartScreen = remainingScreens[0].screenId;
+        reset({
+          ...formValues,
+          startScreen: newStartScreen,
+        });
+      } else {
+        // No screens left, clear start screen
+        reset({
+          ...formValues,
+          startScreen: '',
+        });
+      }
+    }
+  }, [configuredScreens, screenConfigs, edges, formValues.startScreen]);
+
+  // Handler: Reorder screens
+  const handleReorderScreens = useCallback((screenIds: string[]) => {
+    // Order is already updated in handleDragEnd of FlowSequencePanel
+    // This callback is for notification purposes
+    setConfigVersion((prev) => prev + 1);
+  }, []);
+
+  // Handler: Toggle required flag
+  const handleToggleRequired = useCallback((screenId: string, required: boolean) => {
+    setScreenConfigs((prev) => {
+      const newMap = new Map(prev);
+      const existing = newMap.get(screenId);
+      if (existing) {
+        newMap.set(screenId, {
+          ...existing,
+          required,
+        });
+      }
+      return newMap;
+    });
+  }, []);
+
+  // Handler: Update screen config
+  const handleUpdateScreen = useCallback((screenId: string, updates: Partial<FlowScreenConfig>) => {
+    setScreenConfigs((prev) => {
+      const newMap = new Map(prev);
+      const existing = newMap.get(screenId);
+      if (existing) {
+        newMap.set(screenId, {
+          ...existing,
+          ...updates,
+        });
+      }
+      return newMap;
+    });
+    setConfigVersion((prev) => prev + 1);
+  }, []);
+
   /**
    * Builds the complete FlowConfig from form values and screen configurations.
    * 
@@ -930,7 +1023,14 @@ function NewFlowPageContent() {
     console.log('🔨 buildFlowConfig - screenConfigs Map:', Array.from(screenConfigs.entries()));
     console.log('🔨 buildFlowConfig - screenConfigs size:', screenConfigs.size);
     
-    const screens = Array.from(screenConfigs.values()).map((config) => {
+    // Sort screens by order before building config
+    const sortedScreens = Array.from(screenConfigs.values()).sort((a, b) => {
+      const orderA = a.order ?? 999;
+      const orderB = b.order ?? 999;
+      return orderA - orderB;
+    });
+
+    const screens = sortedScreens.map((config) => {
       console.log('📦 Building screen config for:', config.screenId);
       console.log('📦 Config object:', JSON.stringify(config, null, 2));
       console.log('📦 Config.conditions:', config.conditions);
@@ -958,7 +1058,7 @@ function NewFlowPageContent() {
       
       console.log('📦 Mapped conditions:', mappedConditions);
       
-      // Include journey rules (allowBack, allowSkip, maxRetries) in the flow config
+      // Include journey rules (allowBack, allowSkip, maxRetries) and flow sequence metadata
       // These are backend-enforced rules, not UI control settings
       return {
         screenId: config.screenId,
@@ -966,6 +1066,8 @@ function NewFlowPageContent() {
         defaultNext: config.defaultNext,
         conditions: mappedConditions,
         services: config.services,
+        order: config.order,
+        required: config.required,
         allowBack: config.allowBack,
         allowSkip: config.allowSkip,
         maxRetries: config.maxRetries,
@@ -1012,9 +1114,9 @@ function NewFlowPageContent() {
       console.log(`🚀 Flow screen ${screen.screenId} conditions length:`, screen.conditions?.length || 0);
     });
 
-    // Validate before saving
-    const availableScreenIds = configuredScreens?.map((s) => s.screenId) || [];
-    const validation = validateFlow(flowConfig, availableScreenIds);
+    // Validate before saving - use only screens in the flow
+    const flowScreenIds = Array.from(screenConfigs.keys());
+    const validation = validateFlow(flowConfig, flowScreenIds);
     
     if (!validation.isValid) {
       toast.error(`Flow has ${validation.errors.length} error(s). Please fix them before saving.`);
@@ -1107,10 +1209,13 @@ function NewFlowPageContent() {
     }
   };
 
-  const availableScreens = configuredScreens?.map((s) => ({
-    screenId: s.screenId,
-    screenName: s.screenName,
-  })) || [];
+  // Only include screens that are part of the flow sequence
+  const availableScreens = Array.from(screenConfigs.values())
+    .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+    .map((s) => ({
+      screenId: s.screenId,
+      screenName: s.displayName || s.screenId,
+    }));
 
   // Fetch full screen configurations from backend to extract fields
   const { data: fullScreenConfigs } = useQuery({
@@ -1309,18 +1414,38 @@ function NewFlowPageContent() {
                         select
                         required
                         error={!!errors.startScreen}
-                        helperText={errors.startScreen?.message || 'Select from configured screens'}
+                        helperText={errors.startScreen?.message || 'Select from screens in flow'}
                       >
-                        {configuredScreens?.map((screen) => (
-                          <MenuItem key={screen.screenId} value={screen.screenId}>
-                            {screen.screenName}
-                          </MenuItem>
-                        ))}
+                        {Array.from(screenConfigs.values())
+                          .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+                          .map((screen) => (
+                            <MenuItem key={screen.screenId} value={screen.screenId}>
+                              {screen.displayName || screen.screenId}
+                            </MenuItem>
+                          ))}
                       </TextField>
                     )}
                   />
                 </Grid>
               </Grid>
+            </CardContent>
+          </Card>
+
+          {/* Flow Sequence Panel */}
+          <Card sx={{ marginBottom: 3 }}>
+            <CardContent>
+              <FlowSequencePanel
+                allScreens={configuredScreens?.map((s) => ({
+                  screenId: s.screenId,
+                  screenName: s.screenName,
+                })) || []}
+                flowScreens={Array.from(screenConfigs.values())}
+                onAddScreen={handleAddScreen}
+                onRemoveScreen={handleRemoveScreen}
+                onReorderScreens={handleReorderScreens}
+                onToggleRequired={handleToggleRequired}
+                onUpdateScreen={handleUpdateScreen}
+              />
             </CardContent>
           </Card>
 
@@ -1356,7 +1481,7 @@ function NewFlowPageContent() {
                   position: 'relative',
                 }}
               >
-                {(!configuredScreens || configuredScreens.length === 0) ? (
+                {screenConfigs.size === 0 ? (
                   <Box
                     sx={{
                       display: 'flex',
@@ -1368,10 +1493,10 @@ function NewFlowPageContent() {
                     }}
                   >
                     <Typography variant="h6" gutterBottom>
-                      No Screens Available
+                      No Screens in Flow
                     </Typography>
                     <Typography variant="body2">
-                      Please create screens in Screen Builder first before building flows.
+                      Add screens to the flow using the Flow Screens panel above.
                     </Typography>
                   </Box>
                 ) : (
@@ -1399,9 +1524,14 @@ function NewFlowPageContent() {
                     sx={{ bgcolor: '#0B2F70', color: 'white' }}
                   />
                   <Chip
-                    label="Regular Screen"
+                    label="Required Screen"
                     size="small"
                     sx={{ bgcolor: '#00B2FF', color: 'white' }}
+                  />
+                  <Chip
+                    label="Optional Screen"
+                    size="small"
+                    sx={{ bgcolor: '#9E9E9E', color: 'white', border: '1px dashed #9E9E9E' }}
                   />
                   <Chip
                     label="End Screen"

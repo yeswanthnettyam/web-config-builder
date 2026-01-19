@@ -535,6 +535,19 @@ export interface FlowScreenConfig {
   };
   conditions: NavigationCondition[];
   /**
+   * Execution order in the flow sequence.
+   * Lower number = earlier execution (1 is first).
+   * Used for runtime execution priority.
+   */
+  order?: number;
+  /**
+   * Whether this screen is REQUIRED in the flow.
+   * - true: User must complete this screen (cannot be skipped)
+   * - false: Screen may be skipped via conditions
+   * Default: false (except first screen which defaults to true)
+   */
+  required?: boolean;
+  /**
    * JOURNEY RULE: Allow Back Navigation
    * 
    * This setting defines a journey-level rule that determines whether the backend
@@ -608,6 +621,17 @@ export interface ScreenFlowNode {
     onSubmit?: ServiceCall[];
     background?: ServiceCall[];
   };
+  /**
+   * Execution order in the flow sequence.
+   * Lower number = earlier execution (1 is first).
+   */
+  order?: number;
+  /**
+   * Whether this screen is REQUIRED in the flow.
+   * - true: User must complete this screen (cannot be skipped)
+   * - false: Screen may be skipped via conditions
+   */
+  required?: boolean;
   /**
    * JOURNEY RULE: Allow Back Navigation
    * Backend-enforced rule determining if backward navigation is permitted from this node.
