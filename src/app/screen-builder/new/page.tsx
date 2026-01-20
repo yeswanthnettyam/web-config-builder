@@ -588,6 +588,53 @@ function NewScreenConfigPageContent() {
               }
             }
 
+            // Validate CAMERA_CAPTURE configuration
+            if (field.type === 'CAMERA_CAPTURE') {
+              if (!field.cameraConfig?.cameraFacing) {
+                errors.push(`Section "${section.title}", Field "${field.label || field.id}": Camera facing is required`);
+                if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.cameraConfig.cameraFacing`;
+              }
+              if (!field.cameraConfig?.maxImages) {
+                errors.push(`Section "${section.title}", Field "${field.label || field.id}": Max images is required`);
+                if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.cameraConfig.maxImages`;
+              }
+              if (field.storage?.uploadOnCapture) {
+                if (!field.storage?.uploadApi) {
+                  errors.push(`Section "${section.title}", Field "${field.label || field.id}": Upload API is required when upload on capture is enabled`);
+                  if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.storage.uploadApi`;
+                }
+                if (!field.storage?.fileType) {
+                  errors.push(`Section "${section.title}", Field "${field.label || field.id}": File type is required when upload on capture is enabled`);
+                  if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.storage.fileType`;
+                }
+              }
+            }
+
+            // Validate WEBVIEW_LAUNCH configuration
+            if (field.type === 'WEBVIEW_LAUNCH') {
+              if (!field.webviewConfig?.urlSource) {
+                errors.push(`Section "${section.title}", Field "${field.label || field.id}": URL source is required for WebView Launch`);
+                if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.webviewConfig.urlSource`;
+              }
+              if (!field.webviewConfig?.launchApi) {
+                errors.push(`Section "${section.title}", Field "${field.label || field.id}": Launch API is required for WebView Launch`);
+                if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.webviewConfig.launchApi`;
+              }
+              if (!field.webviewConfig?.httpMethod) {
+                errors.push(`Section "${section.title}", Field "${field.label || field.id}": HTTP method is required for WebView Launch`);
+                if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.webviewConfig.httpMethod`;
+              }
+            }
+
+            // Validate QR_SCANNER configuration
+            if (field.type === 'QR_SCANNER') {
+              const mapping = field.qrConfig?.prefillMapping;
+              if (!mapping || typeof mapping !== 'object' || Object.keys(mapping).length === 0) {
+                errors.push(`Section "${section.title}", Field "${field.label || field.id}": Prefill mapping is required for QR Scanner`);
+                if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.qrConfig.prefillMapping`;
+              }
+            }
+
             // Validate OTP configuration
             if (field.type === 'OTP_VERIFICATION') {
               if (!field.otpConfig?.channel) {

@@ -134,6 +134,71 @@ function StaticDataInput({ value, onChange }: { value: any[]; onChange: (value: 
   );
 }
 
+function KeyValueMappingInput({
+  label,
+  helperText,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  helperText: string;
+  placeholder: string;
+  value: Record<string, string> | undefined;
+  onChange: (value: Record<string, string>) => void;
+}) {
+  const [textValue, setTextValue] = useState(() => {
+    if (value && typeof value === 'object') {
+      const entries = Object.entries(value).filter(([k, v]) => k && v);
+      return entries.map(([k, v]) => `${k}:${v}`).join(', ');
+    }
+    return '';
+  });
+
+  const parsePairs = (input: string): Record<string, string> => {
+    const out: Record<string, string> = {};
+    if (!input.trim()) return out;
+
+    const items = input
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    for (const item of items) {
+      const colonIndex = item.indexOf(':');
+      if (colonIndex <= 0) continue;
+      const key = item.substring(0, colonIndex).trim();
+      const val = item.substring(colonIndex + 1).trim();
+      if (key && val) out[key] = val;
+    }
+    return out;
+  };
+
+  return (
+    <TextField
+      fullWidth
+      label={label}
+      multiline
+      rows={3}
+      size="small"
+      placeholder={placeholder}
+      helperText={helperText}
+      value={textValue}
+      onChange={(e) => {
+        const input = e.target.value;
+        setTextValue(input);
+        onChange(parsePairs(input));
+      }}
+      sx={{
+        '& .MuiInputBase-input': {
+          fontFamily: 'monospace',
+          fontSize: '0.9rem',
+        },
+      }}
+    />
+  );
+}
+
 interface FieldBuilderProps {
   control: Control<any>;
   watch: UseFormWatch<any>;
@@ -366,6 +431,9 @@ export default function FieldBuilder({
           const hasApiVerificationConfig = currentFieldType === 'API_VERIFICATION';
           const hasFileConfig = currentFieldType === 'FILE_UPLOAD';
           const hasDateConfig = currentFieldType === 'DATE';
+          const hasCameraCaptureConfig = currentFieldType === 'CAMERA_CAPTURE';
+          const hasWebviewLaunchConfig = currentFieldType === 'WEBVIEW_LAUNCH';
+          const hasQrScannerConfig = currentFieldType === 'QR_SCANNER';
           const hasTextInput = ['TEXT', 'NUMBER', 'TEXTAREA', 'OTP_VERIFICATION', 'API_VERIFICATION'].includes(currentFieldType);
           const hasInputCapable = ['TEXT', 'NUMBER', 'DATE', 'DROPDOWN', 'TEXTAREA', 'VERIFIED_INPUT', 'OTP_VERIFICATION', 'API_VERIFICATION', 'FILE_UPLOAD'].includes(currentFieldType);
           const verificationMode = watch(`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.verification.mode`);
@@ -960,6 +1028,273 @@ export default function FieldBuilder({
                               type="number"
                               size="small"
                               inputProps={{ min: 1, max: 10 }}
+                            />
+                          )}
+                        />
+                      </Grid>
+                    </>
+                  )}
+
+                  {/* Camera Capture Configuration */}
+                  {hasCameraCaptureConfig && (
+                    <>
+                      <Grid item xs={12}>
+                        <Typography variant="caption" fontWeight={600} color="primary">
+                          Camera Capture Configuration
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.cameraConfig.cameraFacing`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField {...field} fullWidth label="Camera Facing" select required size="small">
+                              <MenuItem value="BACK">Back</MenuItem>
+                              <MenuItem value="FRONT">Front</MenuItem>
+                            </TextField>
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <FormControlLabel
+                          control={
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.cameraConfig.allowGallery`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <Checkbox {...field} checked={field.value || false} />
+                              )}
+                            />
+                          }
+                          label="Allow Gallery"
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.cameraConfig.maxImages`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField {...field} fullWidth label="Max Images" type="number" size="small" placeholder="e.g., 1" />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
+                          Quality Checks (Optional)
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <FormControlLabel
+                          control={
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.cameraConfig.qualityChecks.blurDetection`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <Checkbox {...field} checked={field.value || false} />
+                              )}
+                            />
+                          }
+                          label="Enable Blur Detection"
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.cameraConfig.qualityChecks.minResolution.width`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField {...field} fullWidth label="Min Width (px)" type="number" size="small" />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.cameraConfig.qualityChecks.minResolution.height`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField {...field} fullWidth label="Min Height (px)" type="number" size="small" />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Typography variant="caption" fontWeight={600} color="primary" sx={{ mt: 2 }}>
+                          Storage / Upload
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <FormControlLabel
+                          control={
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.storage.uploadOnCapture`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <Checkbox {...field} checked={field.value || false} />
+                              )}
+                            />
+                          }
+                          label="Upload on Capture"
+                        />
+                      </Grid>
+
+                      {watch(`${fieldArrayName}.${fieldIndex}.storage.uploadOnCapture`) && (
+                        <>
+                          <Grid item xs={12} md={6}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.storage.uploadApi`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField
+                                  {...field}
+                                  fullWidth
+                                  label="Upload API"
+                                  required
+                                  size="small"
+                                  placeholder="/api/v1/files/upload"
+                                />
+                              )}
+                            />
+                          </Grid>
+
+                          <Grid item xs={12} md={3}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.storage.fileType`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField {...field} fullWidth label="File Type" select size="small">
+                                  <MenuItem value="IMAGE">IMAGE</MenuItem>
+                                </TextField>
+                              )}
+                            />
+                          </Grid>
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  {/* WebView Launch Configuration */}
+                  {hasWebviewLaunchConfig && (
+                    <>
+                      <Grid item xs={12}>
+                        <Typography variant="caption" fontWeight={600} color="primary">
+                          WebView Launch Configuration
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.webviewConfig.urlSource`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField {...field} fullWidth label="URL Source" select required size="small">
+                              <MenuItem value="API">API</MenuItem>
+                            </TextField>
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={5}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.webviewConfig.launchApi`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField {...field} fullWidth label="Launch API" required size="small" placeholder="/api/v1/esign/init" />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={3}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.webviewConfig.httpMethod`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField {...field} fullWidth label="HTTP Method" select required size="small">
+                              {HTTP_METHODS.map((m) => (
+                                <MenuItem key={m.value} value={m.value}>
+                                  {m.label}
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
+                          Success Condition (Optional)
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.webviewConfig.successCondition.source`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField {...field} fullWidth label="Source" select size="small">
+                              <MenuItem value="CALLBACK">Callback</MenuItem>
+                              <MenuItem value="POLLING">Polling</MenuItem>
+                            </TextField>
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.webviewConfig.successCondition.field`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField {...field} fullWidth label="Response Field" size="small" placeholder="e.g., status" />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.webviewConfig.successCondition.equals`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField {...field} fullWidth label="Equals" size="small" placeholder="e.g., COMPLETED" />
+                          )}
+                        />
+                      </Grid>
+                    </>
+                  )}
+
+                  {/* QR Scanner Configuration */}
+                  {hasQrScannerConfig && (
+                    <>
+                      <Grid item xs={12}>
+                        <Typography variant="caption" fontWeight={600} color="primary">
+                          QR Scanner Configuration
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.qrConfig.prefillMapping`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <KeyValueMappingInput
+                              label="Prefill Mapping (fieldId:qrKey)"
+                              placeholder="gst_number:gstin, business_name:legalName"
+                              helperText="Comma-separated key:value pairs. Left = target screen fieldId, right = QR payload key."
+                              value={field.value}
+                              onChange={(obj) => {
+                                setValue(`${fieldArrayName}.${fieldIndex}.qrConfig.prefillMapping`, obj, { shouldDirty: true });
+                              }}
                             />
                           )}
                         />

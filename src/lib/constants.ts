@@ -44,6 +44,9 @@ export const FIELD_TYPES = [
   { value: 'VERIFIED_INPUT', label: 'Verified Input' },
   { value: 'OTP_VERIFICATION', label: 'OTP Verification' },
   { value: 'API_VERIFICATION', label: 'API Verification' },
+  { value: 'CAMERA_CAPTURE', label: 'Camera Capture' },
+  { value: 'WEBVIEW_LAUNCH', label: 'WebView Launch' },
+  { value: 'QR_SCANNER', label: 'QR Scanner' },
   { value: 'CHECKBOX', label: 'Checkbox' },
   { value: 'RADIO', label: 'Radio Button' },
 ] as const;

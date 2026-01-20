@@ -74,6 +74,9 @@ export type FieldType =
   | 'OTP_VERIFICATION'
   | 'API_VERIFICATION'
   | 'VERIFIED_INPUT'
+  | 'CAMERA_CAPTURE'
+  | 'WEBVIEW_LAUNCH'
+  | 'QR_SCANNER'
   | 'CHECKBOX'
   | 'RADIO';
 
@@ -163,6 +166,40 @@ export interface ApiVerificationConfig {
   showDialog?: boolean;
   minLength?: number;
   maxLength?: number;
+}
+
+export interface CameraCaptureConfig {
+  cameraFacing: 'BACK' | 'FRONT';
+  allowGallery?: boolean;
+  maxImages?: number;
+  qualityChecks?: {
+    blurDetection?: boolean;
+    minResolution?: {
+      width?: number;
+      height?: number;
+    };
+  };
+}
+
+export interface WebviewLaunchConfig {
+  urlSource: 'API';
+  launchApi: string;
+  httpMethod: 'GET' | 'POST' | 'PUT';
+  successCondition?: {
+    source: 'CALLBACK' | 'POLLING';
+    field: string;
+    equals: string;
+  };
+}
+
+export interface QrScannerConfig {
+  prefillMapping: Record<string, string>;
+}
+
+export interface FieldStorageConfig {
+  uploadOnCapture?: boolean;
+  uploadApi?: string;
+  fileType?: 'IMAGE';
 }
 
 export interface VerifiedInputConfig {
@@ -257,6 +294,10 @@ export interface Field {
   apiVerificationConfig?: ApiVerificationConfig;
   verifiedInputConfig?: VerifiedInputConfig;
   dateConfig?: DateConfig;
+  cameraConfig?: CameraCaptureConfig;
+  webviewConfig?: WebviewLaunchConfig;
+  qrConfig?: QrScannerConfig;
+  storage?: FieldStorageConfig;
   /**
    * Visibility dependency condition.
    * Supports both legacy single conditions and new condition groups.

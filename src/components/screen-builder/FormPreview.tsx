@@ -744,6 +744,48 @@ export default function FormPreview({ formData }: FormPreviewProps) {
           </Box>
         );
 
+      case 'CAMERA_CAPTURE':
+        return (
+          <Box key={field.id}>
+            <Button variant="outlined" fullWidth disabled={isDisabled}>
+              Capture Image ({field.cameraConfig?.cameraFacing || 'BACK'})
+            </Button>
+            {field.storage?.uploadOnCapture && field.storage?.uploadApi && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                Upload on capture → {field.storage.uploadApi}
+              </Typography>
+            )}
+          </Box>
+        );
+
+      case 'WEBVIEW_LAUNCH':
+        return (
+          <Box key={field.id}>
+            <Button variant="outlined" fullWidth disabled={isDisabled}>
+              Launch WebView ({field.webviewConfig?.httpMethod || 'POST'})
+            </Button>
+            {field.webviewConfig?.launchApi && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                Launch API → {field.webviewConfig.launchApi}
+              </Typography>
+            )}
+          </Box>
+        );
+
+      case 'QR_SCANNER':
+        return (
+          <Box key={field.id}>
+            <Button variant="outlined" fullWidth disabled={isDisabled}>
+              Scan QR
+            </Button>
+            {field.qrConfig?.prefillMapping && Object.keys(field.qrConfig.prefillMapping).length > 0 && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                Prefill mappings: {Object.keys(field.qrConfig.prefillMapping).length}
+              </Typography>
+            )}
+          </Box>
+        );
+
       default:
         return (
           <TextField
