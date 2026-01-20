@@ -161,12 +161,15 @@ export interface ApiVerificationConfig {
     failure?: string;
   };
   showDialog?: boolean;
+  minLength?: number;
+  maxLength?: number;
 }
 
 export interface VerifiedInputConfig {
   input: {
     dataType: 'TEXT' | 'NUMBER';
     keyboard?: 'NUMBER' | 'TEXT';
+    minLength?: number;
     maxLength?: number;
     min?: number;
     max?: number;

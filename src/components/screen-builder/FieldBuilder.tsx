@@ -1534,6 +1534,49 @@ export default function FieldBuilder({
 
                       <Grid item xs={12}>
                         <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
+                          Text Input Properties
+                        </Typography>
+                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.apiVerificationConfig.minLength`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Min Length"
+                              type="number"
+                              size="small"
+                              placeholder="Optional"
+                              helperText="Minimum input length"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.apiVerificationConfig.maxLength`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Max Length"
+                              type="number"
+                              size="small"
+                              placeholder="Optional"
+                              helperText="Maximum input length"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12}>
+                        <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
                           Request Mapping (Optional)
                         </Typography>
                         <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
@@ -1716,23 +1759,41 @@ export default function FieldBuilder({
                         />
                       </Grid>
 
-                      {watch(`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.dataType`) === 'TEXT' && (
-                        <Grid item xs={12} md={4}>
-                          <Controller
-                            name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.maxLength`}
-                            control={control}
-                            render={({ field }: { field: any }) => (
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.minLength`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
                             <TextField
                               {...field}
                               fullWidth
-                                label="Max Length"
-                                type="number"
-                                size="small"
-                              />
-                            )}
-                          />
-                        </Grid>
-                      )}
+                              label="Min Length"
+                              type="number"
+                              size="small"
+                              placeholder="Optional"
+                              helperText="Minimum input length"
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.maxLength`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField
+                              {...field}
+                              fullWidth
+                              label="Max Length"
+                              type="number"
+                              size="small"
+                              placeholder="Optional"
+                              helperText="Maximum input length"
+                            />
+                          )}
+                        />
+                      </Grid>
 
                       {watch(`${fieldArrayName}.${fieldIndex}.verifiedInputConfig.input.dataType`) === 'NUMBER' && (
                         <>
