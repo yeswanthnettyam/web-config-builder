@@ -134,68 +134,178 @@ function StaticDataInput({ value, onChange }: { value: any[]; onChange: (value: 
   );
 }
 
-function KeyValueMappingInput({
-  label,
-  helperText,
-  placeholder,
-  value,
-  onChange,
+// Structured QR Prefill Mapping Editor Component
+function QrPrefillMappingEditor({
+  control,
+  watch,
+  setValue,
+  fieldArrayName,
+  fieldIndex,
+  getAllFieldIds,
 }: {
-  label: string;
-  helperText: string;
-  placeholder: string;
-  value: Record<string, string> | undefined;
-  onChange: (value: Record<string, string>) => void;
+  control: Control<any>;
+  watch: UseFormWatch<any>;
+  setValue: (name: string, value: any, options?: any) => void;
+  fieldArrayName: string;
+  fieldIndex: number;
+  getAllFieldIds: () => Array<{ value: string; label: string }>;
 }) {
-  const [textValue, setTextValue] = useState(() => {
-    if (value && typeof value === 'object') {
-      const entries = Object.entries(value).filter(([k, v]) => k && v);
-      return entries.map(([k, v]) => `${k}:${v}`).join(', ');
-    }
-    return '';
+  const mappingArrayName = `${fieldArrayName}.${fieldIndex}.qrConfig.prefillMapping`;
+  const {
+    fields: mappingFields,
+    append: appendMapping,
+    remove: removeMapping,
+  } = useFieldArray({
+    control,
+    name: mappingArrayName,
   });
 
-  const parsePairs = (input: string): Record<string, string> => {
-    const out: Record<string, string> = {};
-    if (!input.trim()) return out;
-
-    const items = input
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
-
-    for (const item of items) {
-      const colonIndex = item.indexOf(':');
-      if (colonIndex <= 0) continue;
-      const key = item.substring(0, colonIndex).trim();
-      const val = item.substring(colonIndex + 1).trim();
-      if (key && val) out[key] = val;
+  // Initialize format and empty array if not set
+  useEffect(() => {
+    const currentFormat = watch(`${fieldArrayName}.${fieldIndex}.qrConfig.format`);
+    if (!currentFormat) {
+      setValue(`${fieldArrayName}.${fieldIndex}.qrConfig.format`, 'JSON', { shouldDirty: false });
     }
-    return out;
-  };
+    const currentMappings = watch(mappingArrayName);
+    if (!currentMappings || !Array.isArray(currentMappings)) {
+      setValue(mappingArrayName, [], { shouldDirty: false });
+    }
+  }, [fieldArrayName, fieldIndex, mappingArrayName, watch, setValue]);
+
+  const availableFields = getAllFieldIds().filter(
+    (f: { value: string; label: string }) => f.value !== watch(`${fieldArrayName}.${fieldIndex}.id`)
+  );
 
   return (
-    <TextField
-      fullWidth
-      label={label}
-      multiline
-      rows={3}
-      size="small"
-      placeholder={placeholder}
-      helperText={helperText}
-      value={textValue}
-      onChange={(e) => {
-        const input = e.target.value;
-        setTextValue(input);
-        onChange(parsePairs(input));
-      }}
-      sx={{
-        '& .MuiInputBase-input': {
-          fontFamily: 'monospace',
-          fontSize: '0.9rem',
-        },
-      }}
-    />
+    <>
+      <Grid item xs={12}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="body2" fontWeight={500}>
+            Prefill Mapping
+          </Typography>
+          <Button
+            size="small"
+            startIcon={<Add />}
+            onClick={() => appendMapping({ targetFieldId: '', qrKey: '' })}
+            variant="outlined"
+          >
+            Add Mapping
+          </Button>
+        </Box>
+      </Grid>
+
+      {mappingFields.length === 0 ? (
+        <Grid item xs={12}>
+          <Card variant="outlined" sx={{ padding: 2, textAlign: 'center', bgcolor: 'grey.50' }}>
+            <Typography variant="body2" color="text.secondary">
+              No mappings added. Click &quot;Add Mapping&quot; to create one.
+            </Typography>
+          </Card>
+        </Grid>
+      ) : (
+        mappingFields.map((mapping: any, mappingIndex: number) => {
+          const usedFieldIds = mappingFields
+            .map((m: any, idx: number) => idx !== mappingIndex ? watch(`${mappingArrayName}.${idx}.targetFieldId`) : null)
+            .filter(Boolean);
+          const availableFieldsForDropdown = availableFields.filter(
+            (f: { value: string }) => !usedFieldIds.includes(f.value)
+          );
+
+          return (
+            <Grid item xs={12} key={mapping.id || mappingIndex}>
+              <Card variant="outlined" sx={{ padding: 2 }}>
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                  <Grid container spacing={2} sx={{ flex: 1 }}>
+                    <Grid item xs={12} md={5}>
+                      <Controller
+                        name={`${mappingArrayName}.${mappingIndex}.targetFieldId`}
+                        control={control}
+                        rules={{ required: 'Target field is required' }}
+                        render={({ field, fieldState }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Target Field"
+                            select
+                            required
+                            size="small"
+                            error={!!fieldState.error}
+                            helperText={fieldState.error?.message}
+                          >
+                            {availableFieldsForDropdown.length === 0 ? (
+                              <MenuItem value="" disabled>
+                                {availableFields.length === 0
+                                  ? 'No other fields available'
+                                  : 'All fields already mapped'}
+                              </MenuItem>
+                            ) : (
+                              availableFieldsForDropdown.map((f: { value: string; label: string }) => (
+                                <MenuItem key={f.value} value={f.value}>
+                                  {f.label}
+                                </MenuItem>
+                              ))
+                            )}
+                          </TextField>
+                        )}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Controller
+                        name={`${mappingArrayName}.${mappingIndex}.qrKey`}
+                        control={control}
+                        rules={{ required: 'QR key is required' }}
+                        render={({ field, fieldState }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="QR Payload Key"
+                            required
+                            size="small"
+                            placeholder="e.g., gstin"
+                            error={!!fieldState.error}
+                            helperText={fieldState.error?.message || 'Key in QR JSON payload'}
+                          />
+                        )}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={2}>
+                      <Controller
+                        name={`${mappingArrayName}.${mappingIndex}.transformer`}
+                        control={control}
+                        render={({ field }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Transformer"
+                            select
+                            size="small"
+                            helperText="Optional"
+                          >
+                            <MenuItem value="">None</MenuItem>
+                            <MenuItem value="uppercase">Uppercase</MenuItem>
+                            <MenuItem value="lowercase">Lowercase</MenuItem>
+                            <MenuItem value="trim">Trim</MenuItem>
+                            <MenuItem value="removeSpaces">Remove Spaces</MenuItem>
+                          </TextField>
+                        )}
+                      />
+                    </Grid>
+                  </Grid>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => removeMapping(mappingIndex)}
+                    sx={{ mt: 1 }}
+                  >
+                    <Delete />
+                  </IconButton>
+                </Box>
+              </Card>
+            </Grid>
+          );
+        })
+      )}
+    </>
   );
 }
 
@@ -1183,94 +1293,87 @@ export default function FieldBuilder({
                   )}
 
                   {/* WebView Launch Configuration */}
-                  {hasWebviewLaunchConfig && (
-                    <>
-                      <Grid item xs={12}>
-                        <Typography variant="caption" fontWeight={600} color="primary">
-                          WebView Launch Configuration
-                        </Typography>
-                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                      </Grid>
+                  {hasWebviewLaunchConfig && (() => {
+                    const urlSource = watch(`${fieldArrayName}.${fieldIndex}.webviewConfig.urlSource`);
+                    return (
+                      <>
+                        <Grid item xs={12}>
+                          <Typography variant="caption" fontWeight={600} color="primary">
+                            WebView Launch Configuration
+                          </Typography>
+                          <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
+                        </Grid>
 
-                      <Grid item xs={12} md={4}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.webviewConfig.urlSource`}
-                          control={control}
-                          render={({ field }: { field: any }) => (
-                            <TextField {...field} fullWidth label="URL Source" select required size="small">
-                              <MenuItem value="API">API</MenuItem>
-                            </TextField>
-                          )}
-                        />
-                      </Grid>
+                        <Grid item xs={12} md={4}>
+                          <Controller
+                            name={`${fieldArrayName}.${fieldIndex}.webviewConfig.urlSource`}
+                            control={control}
+                            render={({ field }: { field: any }) => (
+                              <TextField {...field} fullWidth label="URL Source" select required size="small">
+                                <MenuItem value="STATIC">Static URL</MenuItem>
+                                <MenuItem value="API">API Endpoint</MenuItem>
+                              </TextField>
+                            )}
+                          />
+                        </Grid>
 
-                      <Grid item xs={12} md={5}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.webviewConfig.launchApi`}
-                          control={control}
-                          render={({ field }: { field: any }) => (
-                            <TextField {...field} fullWidth label="Launch API" required size="small" placeholder="/api/v1/esign/init" />
-                          )}
-                        />
-                      </Grid>
+                        {urlSource === 'STATIC' && (
+                          <Grid item xs={12} md={8}>
+                            <Controller
+                              name={`${fieldArrayName}.${fieldIndex}.webviewConfig.url`}
+                              control={control}
+                              render={({ field }: { field: any }) => (
+                                <TextField 
+                                  {...field} 
+                                  fullWidth 
+                                  label="URL" 
+                                  required 
+                                  size="small" 
+                                  placeholder="https://example.com/esign" 
+                                  helperText="Full URL to open in WebView"
+                                />
+                              )}
+                            />
+                          </Grid>
+                        )}
 
-                      <Grid item xs={12} md={3}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.webviewConfig.httpMethod`}
-                          control={control}
-                          render={({ field }: { field: any }) => (
-                            <TextField {...field} fullWidth label="HTTP Method" select required size="small">
-                              {HTTP_METHODS.map((m) => (
-                                <MenuItem key={m.value} value={m.value}>
-                                  {m.label}
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                          )}
-                        />
-                      </Grid>
+                        {urlSource === 'API' && (
+                          <>
+                            <Grid item xs={12} md={5}>
+                              <Controller
+                                name={`${fieldArrayName}.${fieldIndex}.webviewConfig.launchApi`}
+                                control={control}
+                                render={({ field }: { field: any }) => (
+                                  <TextField 
+                                    {...field} 
+                                    fullWidth 
+                                    label="Launch API" 
+                                    required 
+                                    size="small" 
+                                    placeholder="/api/v1/esign/init" 
+                                    helperText="API endpoint that returns WebView URL"
+                                  />
+                                )}
+                              />
+                            </Grid>
 
-                      <Grid item xs={12}>
-                        <Typography variant="caption" fontWeight={600} color="secondary" sx={{ mt: 2 }}>
-                          Success Condition (Optional)
-                        </Typography>
-                        <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
-                      </Grid>
-
-                      <Grid item xs={12} md={4}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.webviewConfig.successCondition.source`}
-                          control={control}
-                          render={({ field }: { field: any }) => (
-                            <TextField {...field} fullWidth label="Source" select size="small">
-                              <MenuItem value="CALLBACK">Callback</MenuItem>
-                              <MenuItem value="POLLING">Polling</MenuItem>
-                            </TextField>
-                          )}
-                        />
-                      </Grid>
-
-                      <Grid item xs={12} md={4}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.webviewConfig.successCondition.field`}
-                          control={control}
-                          render={({ field }: { field: any }) => (
-                            <TextField {...field} fullWidth label="Response Field" size="small" placeholder="e.g., status" />
-                          )}
-                        />
-                      </Grid>
-
-                      <Grid item xs={12} md={4}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.webviewConfig.successCondition.equals`}
-                          control={control}
-                          render={({ field }: { field: any }) => (
-                            <TextField {...field} fullWidth label="Equals" size="small" placeholder="e.g., COMPLETED" />
-                          )}
-                        />
-                      </Grid>
-                    </>
-                  )}
+                            <Grid item xs={12} md={3}>
+                              <Controller
+                                name={`${fieldArrayName}.${fieldIndex}.webviewConfig.method`}
+                                control={control}
+                                render={({ field }: { field: any }) => (
+                                  <TextField {...field} fullWidth label="HTTP Method" select required size="small">
+                                    <MenuItem value="GET">GET</MenuItem>
+                                    <MenuItem value="POST">POST</MenuItem>
+                                  </TextField>
+                                )}
+                              />
+                            </Grid>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
 
                   {/* QR Scanner Configuration */}
                   {hasQrScannerConfig && (
@@ -1281,24 +1384,14 @@ export default function FieldBuilder({
                         </Typography>
                         <Divider sx={{ marginTop: 0.5, marginBottom: 1.5 }} />
                       </Grid>
-
-                      <Grid item xs={12}>
-                        <Controller
-                          name={`${fieldArrayName}.${fieldIndex}.qrConfig.prefillMapping`}
-                          control={control}
-                          render={({ field }: { field: any }) => (
-                            <KeyValueMappingInput
-                              label="Prefill Mapping (fieldId:qrKey)"
-                              placeholder="gst_number:gstin, business_name:legalName"
-                              helperText="Comma-separated key:value pairs. Left = target screen fieldId, right = QR payload key."
-                              value={field.value}
-                              onChange={(obj) => {
-                                setValue(`${fieldArrayName}.${fieldIndex}.qrConfig.prefillMapping`, obj, { shouldDirty: true });
-                              }}
-                            />
-                          )}
-                        />
-                      </Grid>
+                      <QrPrefillMappingEditor
+                        control={control}
+                        watch={watch}
+                        setValue={setValue}
+                        fieldArrayName={fieldArrayName}
+                        fieldIndex={fieldIndex}
+                        getAllFieldIds={getAllFieldIds}
+                      />
                     </>
                   )}
 

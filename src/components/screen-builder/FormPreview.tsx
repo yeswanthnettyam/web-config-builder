@@ -759,29 +759,54 @@ export default function FormPreview({ formData }: FormPreviewProps) {
         );
 
       case 'WEBVIEW_LAUNCH':
+        const webviewConfig = field.webviewConfig;
         return (
           <Box key={field.id}>
             <Button variant="outlined" fullWidth disabled={isDisabled}>
-              Launch WebView ({field.webviewConfig?.httpMethod || 'POST'})
+              Launch WebView
             </Button>
-            {field.webviewConfig?.launchApi && (
+            {webviewConfig?.urlSource === 'STATIC' && webviewConfig?.url && (
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                Launch API → {field.webviewConfig.launchApi}
+                URL → {webviewConfig.url}
+              </Typography>
+            )}
+            {webviewConfig?.urlSource === 'API' && webviewConfig?.launchApi && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                API → {webviewConfig.launchApi} ({webviewConfig.method || 'POST'})
               </Typography>
             )}
           </Box>
         );
 
       case 'QR_SCANNER':
+        const qrMappings = field.qrConfig?.prefillMapping;
+        const mappingCount = Array.isArray(qrMappings) ? qrMappings.length : 0;
         return (
           <Box key={field.id}>
             <Button variant="outlined" fullWidth disabled={isDisabled}>
               Scan QR
             </Button>
-            {field.qrConfig?.prefillMapping && Object.keys(field.qrConfig.prefillMapping).length > 0 && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                Prefill mappings: {Object.keys(field.qrConfig.prefillMapping).length}
-              </Typography>
+            {mappingCount > 0 && (
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  Prefill mappings: {mappingCount}
+                </Typography>
+                {Array.isArray(qrMappings) && qrMappings.length > 0 && (
+                  <Box sx={{ mt: 0.5 }}>
+                    {qrMappings.slice(0, 3).map((mapping: any, idx: number) => (
+                      <Typography key={idx} variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                        • {mapping.targetFieldId} ← {mapping.qrKey}
+                        {mapping.transformer && ` (${mapping.transformer})`}
+                      </Typography>
+                    ))}
+                    {qrMappings.length > 3 && (
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        ... and {qrMappings.length - 3} more
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+              </Box>
             )}
           </Box>
         );

@@ -182,18 +182,21 @@ export interface CameraCaptureConfig {
 }
 
 export interface WebviewLaunchConfig {
-  urlSource: 'API';
-  launchApi: string;
-  httpMethod: 'GET' | 'POST' | 'PUT';
-  successCondition?: {
-    source: 'CALLBACK' | 'POLLING';
-    field: string;
-    equals: string;
-  };
+  urlSource: 'STATIC' | 'API';
+  url?: string; // Required if urlSource is STATIC
+  launchApi?: string; // Required if urlSource is API
+  method?: 'GET' | 'POST'; // Required if urlSource is API
+}
+
+export interface QrPrefillMapping {
+  targetFieldId: string;
+  qrKey: string;
+  transformer?: 'uppercase' | 'lowercase' | 'trim' | 'removeSpaces';
 }
 
 export interface QrScannerConfig {
-  prefillMapping: Record<string, string>;
+  format: 'JSON';
+  prefillMapping: QrPrefillMapping[];
 }
 
 export interface FieldStorageConfig {

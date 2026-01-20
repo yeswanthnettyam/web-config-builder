@@ -615,23 +615,54 @@ function NewScreenConfigPageContent() {
               if (!field.webviewConfig?.urlSource) {
                 errors.push(`Section "${section.title}", Field "${field.label || field.id}": URL source is required for WebView Launch`);
                 if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.webviewConfig.urlSource`;
-              }
-              if (!field.webviewConfig?.launchApi) {
-                errors.push(`Section "${section.title}", Field "${field.label || field.id}": Launch API is required for WebView Launch`);
-                if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.webviewConfig.launchApi`;
-              }
-              if (!field.webviewConfig?.httpMethod) {
-                errors.push(`Section "${section.title}", Field "${field.label || field.id}": HTTP method is required for WebView Launch`);
-                if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.webviewConfig.httpMethod`;
+              } else {
+                if (field.webviewConfig.urlSource === 'STATIC') {
+                  if (!field.webviewConfig.url) {
+                    errors.push(`Section "${section.title}", Field "${field.label || field.id}": URL is required when URL source is STATIC`);
+                    if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.webviewConfig.url`;
+                  }
+                } else if (field.webviewConfig.urlSource === 'API') {
+                  if (!field.webviewConfig.launchApi) {
+                    errors.push(`Section "${section.title}", Field "${field.label || field.id}": Launch API is required when URL source is API`);
+                    if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.webviewConfig.launchApi`;
+                  }
+                  if (!field.webviewConfig.method) {
+                    errors.push(`Section "${section.title}", Field "${field.label || field.id}": HTTP method is required when URL source is API`);
+                    if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.webviewConfig.method`;
+                  }
+                }
               }
             }
 
             // Validate QR_SCANNER configuration
             if (field.type === 'QR_SCANNER') {
-              const mapping = field.qrConfig?.prefillMapping;
-              if (!mapping || typeof mapping !== 'object' || Object.keys(mapping).length === 0) {
-                errors.push(`Section "${section.title}", Field "${field.label || field.id}": Prefill mapping is required for QR Scanner`);
+              if (!field.qrConfig?.format) {
+                errors.push(`Section "${section.title}", Field "${field.label || field.id}": QR format is required`);
+                if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.qrConfig.format`;
+              }
+              const mappings = field.qrConfig?.prefillMapping;
+              if (!mappings || !Array.isArray(mappings) || mappings.length === 0) {
+                errors.push(`Section "${section.title}", Field "${field.label || field.id}": At least one prefill mapping is required for QR Scanner`);
                 if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.qrConfig.prefillMapping`;
+              } else {
+                const targetFieldIds = new Set<string>();
+                mappings.forEach((mapping: any, mIndex: number) => {
+                  if (!mapping.targetFieldId) {
+                    errors.push(`Section "${section.title}", Field "${field.label || field.id}", Mapping ${mIndex + 1}: Target field ID is required`);
+                    if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.qrConfig.prefillMapping.${mIndex}.targetFieldId`;
+                  }
+                  if (!mapping.qrKey) {
+                    errors.push(`Section "${section.title}", Field "${field.label || field.id}", Mapping ${mIndex + 1}: QR key is required`);
+                    if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.qrConfig.prefillMapping.${mIndex}.qrKey`;
+                  }
+                  if (mapping.targetFieldId) {
+                    if (targetFieldIds.has(mapping.targetFieldId)) {
+                      errors.push(`Section "${section.title}", Field "${field.label || field.id}", Mapping ${mIndex + 1}: Target field "${mapping.targetFieldId}" is already mapped`);
+                      if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.qrConfig.prefillMapping.${mIndex}.targetFieldId`;
+                    }
+                    targetFieldIds.add(mapping.targetFieldId);
+                  }
+                });
               }
             }
 
