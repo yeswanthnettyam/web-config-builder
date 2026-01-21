@@ -750,6 +750,11 @@ export default function FormPreview({ formData }: FormPreviewProps) {
             <Button variant="outlined" fullWidth disabled={isDisabled}>
               Capture Image ({field.cameraConfig?.cameraFacing || 'BACK'})
             </Button>
+            {(field.cameraConfig?.minImages !== undefined || field.cameraConfig?.maxImages !== undefined) && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                Images: {field.cameraConfig?.minImages !== undefined ? `${field.cameraConfig.minImages}` : '0'} - {field.cameraConfig?.maxImages || 'N/A'}
+              </Typography>
+            )}
             {field.storage?.uploadOnCapture && field.storage?.uploadApi && (
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                 Upload on capture → {field.storage.uploadApi}
@@ -770,10 +775,17 @@ export default function FormPreview({ formData }: FormPreviewProps) {
                 URL → {webviewConfig.url}
               </Typography>
             )}
-            {webviewConfig?.urlSource === 'API' && webviewConfig?.launchApi && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                API → {webviewConfig.launchApi} ({webviewConfig.method || 'POST'})
-              </Typography>
+            {webviewConfig?.urlSource === 'API' && webviewConfig?.backendEndpoint && (
+              <>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  Backend API → {webviewConfig.backendEndpoint} ({webviewConfig.method || 'POST'})
+                </Typography>
+                {webviewConfig.responseUrlField && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    Response URL Field → {webviewConfig.responseUrlField}
+                  </Typography>
+                )}
+              </>
             )}
           </Box>
         );

@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { Palette, TextFields, Description, Image } from '@mui/icons-material';
 import { DashboardMeta } from '@/types';
-import { DASHBOARD_FLOW_ICONS, DEFAULT_DASHBOARD_COLORS } from '@/lib/constants';
+import { DASHBOARD_FLOW_ICONS } from '@/lib/constants';
 
 interface DashboardMetaEditorProps {
   value?: DashboardMeta;
@@ -31,70 +31,28 @@ interface DashboardMetaEditorProps {
  * Features:
  * - Title and description text inputs
  * - Icon picker (predefined icon keys)
- * - Color pickers for background, text, and icon colors
- * - HEX color validation
- * - Live preview of color combinations
+ * - Live preview
  * 
  * Usage:
  * This metadata is ONLY for Dashboard UI rendering.
  * It does NOT affect flow navigation logic.
  */
 export default function DashboardMetaEditor({ value, onChange }: DashboardMetaEditorProps) {
-  const [errors, setErrors] = React.useState<Record<string, string>>({});
-
   // Initialize with defaults if not provided
   const meta: DashboardMeta = value || {
     title: '',
     description: '',
     icon: 'APPLICANT_ONBOARDING',
-    ui: {
-      backgroundColor: DEFAULT_DASHBOARD_COLORS.BACKGROUND,
-      textColor: DEFAULT_DASHBOARD_COLORS.TEXT,
-      iconColor: DEFAULT_DASHBOARD_COLORS.ICON,
-    },
   };
 
   /**
-   * Validates HEX color format
-   */
-  const validateHexColor = (color: string): boolean => {
-    const hexColorRegex = /^#([0-9A-F]{3}|[0-9A-F]{6})$/i;
-    return hexColorRegex.test(color);
-  };
-
-  /**
-   * Handles field changes with validation
+   * Handles field changes
    */
   const handleChange = (field: string, newValue: string) => {
-    const newErrors = { ...errors };
-
-    // Validate HEX colors
-    if (field.includes('Color') && !validateHexColor(newValue)) {
-      newErrors[field] = 'Invalid HEX color format (e.g., #0B2F70)';
-    } else {
-      delete newErrors[field];
-    }
-
-    setErrors(newErrors);
-
-    // Update meta
-    let updatedMeta: DashboardMeta;
-
-    if (field === 'title' || field === 'description' || field === 'icon') {
-      updatedMeta = {
-        ...meta,
-        [field]: newValue,
-      };
-    } else {
-      // Color fields
-      updatedMeta = {
-        ...meta,
-        ui: {
-          ...meta.ui,
-          [field]: newValue,
-        },
-      };
-    }
+    const updatedMeta: DashboardMeta = {
+      ...meta,
+      [field]: newValue,
+    };
 
     onChange(updatedMeta);
   };
@@ -164,93 +122,6 @@ export default function DashboardMetaEditor({ value, onChange }: DashboardMetaEd
           </FormControl>
         </Grid>
 
-        {/* Background Color */}
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Background Color"
-            value={meta.ui.backgroundColor}
-            onChange={(e) => handleChange('backgroundColor', e.target.value)}
-            placeholder="#0B2F70"
-            error={!!errors.backgroundColor}
-            helperText={errors.backgroundColor || 'HEX color for tile background (e.g., #0B2F70)'}
-            InputProps={{
-              startAdornment: (
-                <Box
-                  sx={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 1,
-                    border: '1px solid #ccc',
-                    backgroundColor: validateHexColor(meta.ui.backgroundColor)
-                      ? meta.ui.backgroundColor
-                      : '#cccccc',
-                    mr: 1,
-                  }}
-                />
-              ),
-            }}
-          />
-        </Grid>
-
-        {/* Text Color */}
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Text Color"
-            value={meta.ui.textColor}
-            onChange={(e) => handleChange('textColor', e.target.value)}
-            placeholder="#FFFFFF"
-            error={!!errors.textColor}
-            helperText={errors.textColor || 'HEX color for title and description text'}
-            InputProps={{
-              startAdornment: (
-                <Box
-                  sx={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 1,
-                    border: '1px solid #ccc',
-                    backgroundColor: validateHexColor(meta.ui.textColor)
-                      ? meta.ui.textColor
-                      : '#cccccc',
-                    mr: 1,
-                  }}
-                />
-              ),
-            }}
-          />
-        </Grid>
-
-        {/* Icon Color */}
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Icon Color"
-            value={meta.ui.iconColor}
-            onChange={(e) => handleChange('iconColor', e.target.value)}
-            placeholder="#00B2FF"
-            error={!!errors.iconColor}
-            helperText={errors.iconColor || 'HEX color for the icon'}
-            InputProps={{
-              startAdornment: (
-                <Box
-                  sx={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: 1,
-                    border: '1px solid #ccc',
-                    backgroundColor: validateHexColor(meta.ui.iconColor)
-                      ? meta.ui.iconColor
-                      : '#cccccc',
-                    mr: 1,
-                  }}
-                />
-              ),
-            }}
-          />
-        </Grid>
-
         {/* Live Preview */}
         <Grid item xs={12}>
           <Box sx={{ mt: 2 }}>
@@ -259,10 +130,8 @@ export default function DashboardMetaEditor({ value, onChange }: DashboardMetaEd
             </Typography>
             <Box
               sx={{
-                backgroundColor: validateHexColor(meta.ui.backgroundColor)
-                  ? meta.ui.backgroundColor
-                  : '#cccccc',
-                color: validateHexColor(meta.ui.textColor) ? meta.ui.textColor : '#000000',
+                backgroundColor: '#f5f5f5',
+                color: '#000000',
                 p: 3,
                 borderRadius: 2,
                 minHeight: 120,
@@ -278,9 +147,7 @@ export default function DashboardMetaEditor({ value, onChange }: DashboardMetaEd
                     width: 40,
                     height: 40,
                     borderRadius: '50%',
-                    backgroundColor: validateHexColor(meta.ui.iconColor)
-                      ? meta.ui.iconColor
-                      : '#00B2FF',
+                    backgroundColor: '#e0e0e0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -301,12 +168,6 @@ export default function DashboardMetaEditor({ value, onChange }: DashboardMetaEd
           </Box>
         </Grid>
       </Grid>
-
-      {Object.keys(errors).length > 0 && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          Please fix validation errors before saving
-        </Alert>
-      )}
     </Paper>
   );
 }

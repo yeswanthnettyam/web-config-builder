@@ -258,12 +258,7 @@ export default function NodeConfigPanel({
       console.log('💾 screenToSave.conditions:', screenToSave.conditions);
       console.log('💾 screenToSave.conditions.length:', screenToSave.conditions.length);
       
-      if (screenToSave.conditions.length === 0) {
-        console.error('❌ CRITICAL ERROR: screenToSave has 0 conditions!');
-        toast.error('No conditions to save. Please add at least one condition.');
-        return;
-      }
-      
+      // Conditions are optional - allow saving without conditions
       console.log('💾 Calling onChange with screenToSave...');
       onChange(screenToSave);
       hasLocalChangesRef.current = false; // Reset flag after saving

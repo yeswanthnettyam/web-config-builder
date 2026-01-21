@@ -1400,33 +1400,6 @@ function NewFlowPageContent() {
                   <Grid item xs={12}>
                     <FlowScopeSelector />
                   </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Controller
-                    name="startScreen"
-                    control={control}
-                    rules={{ required: 'Start screen is required' }}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        fullWidth
-                        label="Start Screen"
-                        select
-                        required
-                        error={!!errors.startScreen}
-                        helperText={errors.startScreen?.message || 'Select from screens in flow'}
-                      >
-                        {Array.from(screenConfigs.values())
-                          .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
-                          .map((screen) => (
-                            <MenuItem key={screen.screenId} value={screen.screenId}>
-                              {screen.displayName || screen.screenId}
-                            </MenuItem>
-                          ))}
-                      </TextField>
-                    )}
-                  />
-                </Grid>
               </Grid>
             </CardContent>
           </Card>
@@ -1458,6 +1431,35 @@ function NewFlowPageContent() {
           {/* Visual Flow Builder */}
           <Card sx={{ marginBottom: 3 }}>
             <CardContent>
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={6}>
+                  <Controller
+                    name="startScreen"
+                    control={control}
+                    rules={{ required: 'Start screen is required' }}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        label="Start Screen"
+                        select
+                        required
+                        error={!!errors.startScreen}
+                        helperText={errors.startScreen?.message || 'Select from screens in flow'}
+                      >
+                        {Array.from(screenConfigs.values())
+                          .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+                          .map((screen) => (
+                            <MenuItem key={screen.screenId} value={screen.screenId}>
+                              {screen.displayName || screen.screenId}
+                            </MenuItem>
+                          ))}
+                      </TextField>
+                    )}
+                  />
+                </Grid>
+              </Grid>
+
               <Typography variant="h6" gutterBottom>
                 Flow Diagram
               </Typography>

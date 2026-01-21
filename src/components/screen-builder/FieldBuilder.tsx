@@ -1185,10 +1185,20 @@ export default function FieldBuilder({
 
                       <Grid item xs={12} md={4}>
                         <Controller
+                          name={`${fieldArrayName}.${fieldIndex}.cameraConfig.minImages`}
+                          control={control}
+                          render={({ field }: { field: any }) => (
+                            <TextField {...field} fullWidth label="Min Images" type="number" size="small" placeholder="e.g., 1" />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Controller
                           name={`${fieldArrayName}.${fieldIndex}.cameraConfig.maxImages`}
                           control={control}
                           render={({ field }: { field: any }) => (
-                            <TextField {...field} fullWidth label="Max Images" type="number" size="small" placeholder="e.g., 1" />
+                            <TextField {...field} fullWidth label="Max Images" type="number" size="small" placeholder="e.g., 2" />
                           )}
                         />
                       </Grid>
@@ -1341,17 +1351,17 @@ export default function FieldBuilder({
                           <>
                             <Grid item xs={12} md={5}>
                               <Controller
-                                name={`${fieldArrayName}.${fieldIndex}.webviewConfig.launchApi`}
+                                name={`${fieldArrayName}.${fieldIndex}.webviewConfig.backendEndpoint`}
                                 control={control}
                                 render={({ field }: { field: any }) => (
                                   <TextField 
                                     {...field} 
                                     fullWidth 
-                                    label="Launch API" 
+                                    label="Backend Endpoint" 
                                     required 
                                     size="small" 
-                                    placeholder="/api/v1/esign/init" 
-                                    helperText="API endpoint that returns WebView URL"
+                                    placeholder="/api/v1/webview/esign/launch" 
+                                    helperText="Backend API endpoint that handles external service call (e.g., eSign, Payment)"
                                   />
                                 )}
                               />
@@ -1366,6 +1376,23 @@ export default function FieldBuilder({
                                     <MenuItem value="GET">GET</MenuItem>
                                     <MenuItem value="POST">POST</MenuItem>
                                   </TextField>
+                                )}
+                              />
+                            </Grid>
+
+                            <Grid item xs={12} md={4}>
+                              <Controller
+                                name={`${fieldArrayName}.${fieldIndex}.webviewConfig.responseUrlField`}
+                                control={control}
+                                render={({ field }: { field: any }) => (
+                                  <TextField 
+                                    {...field} 
+                                    fullWidth 
+                                    label="Response URL Field" 
+                                    size="small" 
+                                    placeholder="url or data.signUrl" 
+                                    helperText="Field path in backend response containing the WebView URL"
+                                  />
                                 )}
                               />
                             </Grid>

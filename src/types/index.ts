@@ -171,6 +171,7 @@ export interface ApiVerificationConfig {
 export interface CameraCaptureConfig {
   cameraFacing: 'BACK' | 'FRONT';
   allowGallery?: boolean;
+  minImages?: number;
   maxImages?: number;
   qualityChecks?: {
     blurDetection?: boolean;
@@ -184,8 +185,25 @@ export interface CameraCaptureConfig {
 export interface WebviewLaunchConfig {
   urlSource: 'STATIC' | 'API';
   url?: string; // Required if urlSource is STATIC
-  launchApi?: string; // Required if urlSource is API
+  
+  /**
+   * Backend endpoint that handles external service call.
+   * 
+   * Android app will call this endpoint with standard request format:
+   * {
+   *   applicationId: string | number,  // Current loan application ID
+   *   screenId: string,                 // Current screen ID
+   *   fieldId: string,                  // This field ID
+   *   partnerCode: string,              // User's partner code
+   *   productCode: string,              // Current product code
+   *   userId?: string,                  // Logged-in user ID
+   *   branchCode?: string,              // User's branch code
+   *   formData?: Record<string, any>    // Current screen form values
+   * }
+   */
+  backendEndpoint?: string; // Required if urlSource is API
   method?: 'GET' | 'POST'; // Required if urlSource is API
+  responseUrlField?: string; // Field path in backend response containing the URL (e.g., "url", "data.signUrl")
 }
 
 export interface QrPrefillMapping {
@@ -706,11 +724,6 @@ export interface DashboardMeta {
   title: string;
   description: string;
   icon: string; // Icon key (e.g., 'APPLICANT_ONBOARDING', 'CREDIT_CHECK')
-  ui: {
-    backgroundColor: string; // HEX color (e.g., '#0B2F70')
-    textColor: string;       // HEX color (e.g., '#FFFFFF')
-    iconColor: string;       // HEX color (e.g., '#00B2FF')
-  };
 }
 
 export interface FlowConfig {
@@ -936,6 +949,26 @@ export interface BackendNextScreenResponse {
   nextScreenId: string;
   screenConfig: Record<string, any>;
   status: string;
+}
+
+/**
+ * Standard Request Format for WEBVIEW_LAUNCH API calls
+ * Android app automatically constructs this from runtime context
+ */
+export interface WebviewLaunchRequest {
+  // Required: Application & Screen Context
+  applicationId: string | number;  // Current loan application ID
+  screenId: string;                // Current screen ID being displayed
+  fieldId: string;                 // Field ID that triggered the action
+  
+  // Required: User Context
+  partnerCode: string;             // User's partner code
+  productCode: string;             // Current product code
+  
+  // Optional: Additional Context
+  userId?: string;                 // Logged-in user ID
+  branchCode?: string;             // User's branch code
+  formData?: Record<string, any>;  // Current screen form values (if any)
 }
 
 /**

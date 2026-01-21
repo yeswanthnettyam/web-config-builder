@@ -598,6 +598,13 @@ function NewScreenConfigPageContent() {
                 errors.push(`Section "${section.title}", Field "${field.label || field.id}": Max images is required`);
                 if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.cameraConfig.maxImages`;
               }
+              // Validate minImages <= maxImages if both are provided
+              if (field.cameraConfig?.minImages !== undefined && field.cameraConfig?.maxImages !== undefined) {
+                if (field.cameraConfig.minImages > field.cameraConfig.maxImages) {
+                  errors.push(`Section "${section.title}", Field "${field.label || field.id}": Min images (${field.cameraConfig.minImages}) cannot be greater than max images (${field.cameraConfig.maxImages})`);
+                  if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.cameraConfig.minImages`;
+                }
+              }
               if (field.storage?.uploadOnCapture) {
                 if (!field.storage?.uploadApi) {
                   errors.push(`Section "${section.title}", Field "${field.label || field.id}": Upload API is required when upload on capture is enabled`);
@@ -622,9 +629,9 @@ function NewScreenConfigPageContent() {
                     if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.webviewConfig.url`;
                   }
                 } else if (field.webviewConfig.urlSource === 'API') {
-                  if (!field.webviewConfig.launchApi) {
-                    errors.push(`Section "${section.title}", Field "${field.label || field.id}": Launch API is required when URL source is API`);
-                    if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.webviewConfig.launchApi`;
+                  if (!field.webviewConfig.backendEndpoint) {
+                    errors.push(`Section "${section.title}", Field "${field.label || field.id}": Backend endpoint is required when URL source is API`);
+                    if (!firstErrorField) firstErrorField = `sections.${sIndex}.fields.${fIndex}.webviewConfig.backendEndpoint`;
                   }
                   if (!field.webviewConfig.method) {
                     errors.push(`Section "${section.title}", Field "${field.label || field.id}": HTTP method is required when URL source is API`);
